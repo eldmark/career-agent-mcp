@@ -240,6 +240,142 @@ def generate_outreach(company: str, role: str, language: str = "en") -> dict:
     return {"status": "success", "company": company, "role": role, "language": language, "pitch": message}
 
 
+def log_application(
+    company: str,
+    role: str,
+    expected_salary: str = "$45,000 - $65,000 USD/yr",
+    modality: str = "Remote (LATAM)",
+    url: str = "",
+    track: str = "04_ai_software_engineer (EN)",
+    ats_match: str = "N/A",
+    status: str = "Por Aplicar",
+    description: str = "",
+    notes: str = ""
+) -> dict:
+    """Logs or updates a job application in job_applications_tracker.xlsx and .csv."""
+    from datetime import datetime
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    
+    excel_path = BASE_DIR / "job_applications_tracker.xlsx"
+    csv_path = BASE_DIR / "job_applications_tracker.csv"
+    
+    headers = [
+        "ID", "Fecha", "Empresa", "Puesto / Título", "Salario Esperado", 
+        "Modalidad", "URL de Vacante", "Track CV Usado", "ATS Match", 
+        "Estado", "Descripción Resumida", "Notas / Siguiente Paso"
+    ]
+    
+    current_id = 1
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+        if excel_path.exists():
+            wb = openpyxl.load_workbook(excel_path)
+            ws = wb.active
+        else:
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Postulaciones"
+            ws.views.sheetView[0].showGridLines = True
+            ws.append(headers)
+            ws.row_dimensions[1].height = 28
+            header_fill = PatternFill(start_color="122644", end_color="122644", fill_type="solid")
+            for col_idx in range(1, len(headers) + 1):
+                c = ws.cell(row=1, column=col_idx)
+                c.fill = header_fill
+                c.font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+                c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+        current_id = ws.max_row
+        row_data = [
+            current_id, today_str, company, role, expected_salary,
+            modality, url, track, ats_match, status, description, notes
+        ]
+        ws.append(row_data)
+        curr_row = ws.max_row
+        ws.row_dimensions[curr_row].height = 24
+        
+        thin_border = Border(
+            left=Side(style="thin", color="D0D5DD"), right=Side(style="thin", color="D0D5DD"),
+            top=Side(style="thin", color="D0D5DD"), bottom=Side(style="thin", color="D0D5DD")
+        )
+        for col_idx in range(1, len(row_data) + 1):
+            cell = ws.cell(row=curr_row, column=col_idx)
+            cell.font = Font(name="Calibri", size=10)
+            cell.border = thin_border
+            cell.alignment = Alignment(vertical="center", wrap_text=(col_idx in [11, 12]))
+            if col_idx in [1, 2, 5, 6, 9]:
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+            if col_idx == 10:
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+                cell.font = Font(name="Calibri", size=10, bold=True)
+                if "aplicado" in status.lower():
+                    cell.fill = PatternFill(start_color="E6F4EA", end_color="E6F4EA", fill_type="solid")
+                    cell.font = Font(name="Calibri", size=10, bold=True, color="137333")
+                elif "entrevista" in status.lower():
+                    cell.fill = PatternFill(start_color="E8F0FE", end_color="E8F0FE", fill_type="solid")
+                    cell.font = Font(name="Calibri", size=10, bold=True, color="1A73E8")
+
+        wb.save(excel_path)
+    except Exception:
+        pass
+
+    import csv
+    file_exists = csv_path.exists()
+    row_count = 1
+    if file_exists:
+        try:
+            with open(csv_path, "r", encoding="utf-8") as f:
+                row_count = sum(1 for _ in f)
+        except Exception:
+            row_count = 1
+
+    with open(csv_path, "a", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        if not file_exists:
+            writer.writerow(headers)
+        writer.writerow([
+            row_count, today_str, company, role, expected_salary,
+            modality, url, track, ats_match, status, description, notes
+        ])
+
+    return {
+        "status": "success",
+        "message": f"Application for '{role}' at '{company}' logged successfully.",
+        "tracker_excel": str(excel_path),
+        "tracker_csv": str(csv_path),
+        "logged_entry": {
+            "id": current_id,
+            "date": today_str,
+            "company": company,
+            "role": role,
+            "expected_salary": expected_salary,
+            "status": status,
+            "track": track,
+            "ats_match": ats_match
+        }
+    }
+
+
+def list_applications() -> dict:
+    """Reads and returns all logged applications from the tracker."""
+    import csv
+    csv_path = BASE_DIR / "job_applications_tracker.csv"
+    if not csv_path.exists():
+        return {"status": "success", "count": 0, "applications": []}
+    
+    apps = []
+    try:
+        with open(csv_path, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                apps.append(row)
+        return {"status": "success", "count": len(apps), "applications": apps}
+    except Exception as e:
+        return {"status": "error", "message": f"Failed to read tracker: {str(e)}"}
+
+
 def run_mcp_server():
     """Implements standard MCP stdio JSON-RPC 2.0 server loop."""
     TOOLS_SCHEMA = [
@@ -301,6 +437,34 @@ def run_mcp_server():
                     "language": {"type": "string", "enum": ["en", "es"], "description": "Language: 'en' or 'es'"}
                 },
                 "required": ["company", "role"]
+            }
+        },
+        {
+            "name": "log_application",
+            "description": "Log or update a job application in the tracker spreadsheet (Excel & CSV) with status, salary, and notes.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "company": {"type": "string", "description": "Company name"},
+                    "role": {"type": "string", "description": "Job title"},
+                    "expected_salary": {"type": "string", "description": "Target salary range e.g. '$45,000 - $65,000 USD/yr'"},
+                    "modality": {"type": "string", "description": "e.g. 'Remote (LATAM)' or 'Worldwide'"},
+                    "url": {"type": "string", "description": "Job posting URL"},
+                    "track": {"type": "string", "description": "CV track used e.g. '04_ai_software_engineer (EN)'"},
+                    "ats_match": {"type": "string", "description": "ATS keyword match percentage e.g. '95%'"},
+                    "status": {"type": "string", "description": "Status: 'Por Aplicar', 'Aplicado (En Evaluación)', 'Entrevista', 'Rechazado', 'Oferta'"},
+                    "description": {"type": "string", "description": "Brief 1-2 sentence job summary"},
+                    "notes": {"type": "string", "description": "Actionable next steps or interview notes"}
+                },
+                "required": ["company", "role"]
+            }
+        },
+        {
+            "name": "list_applications",
+            "description": "List all tracked job applications from the tracker spreadsheet.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {}
             }
         }
     ]
@@ -365,6 +529,21 @@ def run_mcp_server():
                 result_content = compile_cv(args.get("tex_path", ""))
             elif name == "generate_outreach":
                 result_content = generate_outreach(args.get("company", ""), args.get("role", ""), args.get("language", "en"))
+            elif name == "log_application":
+                result_content = log_application(
+                    company=args.get("company", ""),
+                    role=args.get("role", ""),
+                    expected_salary=args.get("expected_salary", "$45,000 - $65,000 USD/yr"),
+                    modality=args.get("modality", "Remote (LATAM)"),
+                    url=args.get("url", ""),
+                    track=args.get("track", "04_ai_software_engineer (EN)"),
+                    ats_match=args.get("ats_match", "N/A"),
+                    status=args.get("status", "Por Aplicar"),
+                    description=args.get("description", ""),
+                    notes=args.get("notes", "")
+                )
+            elif name == "list_applications":
+                result_content = list_applications()
             else:
                 result_content = {"status": "error", "message": f"Unknown tool: {name}"}
 
@@ -413,6 +592,20 @@ def main():
     p_pitch.add_argument("role", help="Job title")
     p_pitch.add_argument("--lang", default="en", help="Language: en or es")
 
+    p_log = subparsers.add_parser("log", help="Log a job application into tracker spreadsheet")
+    p_log.add_argument("--company", required=True, help="Company name")
+    p_log.add_argument("--role", required=True, help="Job title")
+    p_log.add_argument("--salary", default="$45,000 - $65,000 USD/yr", help="Expected salary")
+    p_log.add_argument("--modality", default="Remote (LATAM)", help="Modality")
+    p_log.add_argument("--url", default="", help="Job posting URL")
+    p_log.add_argument("--track", default="04_ai_software_engineer (EN)", help="CV Track used")
+    p_log.add_argument("--match", default="N/A", help="ATS match score")
+    p_log.add_argument("--status", default="Por Aplicar", help="Status")
+    p_log.add_argument("--desc", default="", help="Description")
+    p_log.add_argument("--notes", default="", help="Next steps or notes")
+
+    p_list = subparsers.add_parser("list-apps", help="List all logged applications from tracker")
+
     args = parser.parse_args()
 
     if args.command == "scrape":
@@ -429,6 +622,15 @@ def main():
         print(json.dumps(compile_cv(args.path), indent=2))
     elif args.command == "outreach":
         print(generate_outreach(args.company, args.role, args.lang).get("pitch"))
+    elif args.command == "log":
+        res = log_application(
+            company=args.company, role=args.role, expected_salary=args.salary,
+            modality=args.modality, url=args.url, track=args.track,
+            ats_match=args.match, status=args.status, description=args.desc, notes=args.notes
+        )
+        print(json.dumps(res, indent=2))
+    elif args.command == "list-apps":
+        print(json.dumps(list_applications(), indent=2))
     else:
         parser.print_help()
 
