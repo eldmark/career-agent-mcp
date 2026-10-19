@@ -49,7 +49,7 @@ Zero vendor lock-in, zero credit limits, zero subscriptions, and 100% data priva
 ### 1. Installation & Setup
 Clone the repository:
 ```bash
-git clone https://github.com/your-username/career-agent-mcp.git
+git clone https://github.com/eldmark/career-agent-mcp.git
 cd career-agent-mcp
 ```
 
