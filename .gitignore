@@ -8,6 +8,10 @@
 *.pdf
 
 # Environment & Sensitive User Profiles
+profile.yaml
+applications/
+job_applications_tracker.csv
+job_applications_tracker.xlsx
 profile.json
 autofill_config.json
 .env

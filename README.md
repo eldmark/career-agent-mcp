@@ -27,7 +27,9 @@ Zero vendor lock-in, zero credit limits, zero subscriptions, and 100% data priva
 │   • search_remote_jobs(query)     -> Free public endpoints (Remotive API)        │
 │   • analyze_ats_fit(track, text)  -> Local keyword density & gap analysis        │
 │   • compile_cv(tex_path)          -> pdflatex + 1-page verification via pdfinfo  │
-│   • generate_outreach(co, role)   -> High-impact personalized recruiter pitch    │
+│   • generate_outreach(co, role)   -> Recruiter pitch rendered from your profile  │
+│   • lint_cv / tailor_cv           -> Fact-checked CVs, truthful per-job tailoring │
+│   • log_application / followups   -> CSV+Excel tracker with follow-up drafts     │
 └──────────────┬───────────────────────────────────────────────────┬───────────────┘
                │                                                   │
                ▼                                                   ▼
@@ -53,10 +55,11 @@ git clone https://github.com/eldmark/career-agent-mcp.git
 cd career-agent-mcp
 ```
 
-Copy the example profile and configure your details:
+Copy the example profiles and configure your details:
 ```bash
-cp profile.example.json profile.json
-# Edit profile.json with your details (name, email, portfolio, etc.)
+cp profile.example.json profile.json   # browser autofill details
+cp profile.example.yaml profile.yaml   # facts the linter and tailor enforce (gitignored)
+# Edit both with your real, verifiable details
 ```
 
 ### 2. Batch Compile all CV Versions to PDF
@@ -110,11 +113,27 @@ Connect **CareerAgent** directly to **Claude Code**, **Cursor**, **Windsurf**, o
 ```
 
 Once connected, your AI assistant can natively call:
-* `scrape_job`
+* `scrape_job` - cleans a posting and reads its JSON-LD `JobPosting` (title, company); warns on JS-only pages
 * `search_remote_jobs`
-* `analyze_ats_fit`
-* `compile_cv`
+* `analyze_ats_fit` - splits missing keywords into `addable_keywords` (declared in `profile.yaml`) and `gap_keywords` (never claimed)
+* `compile_cv` - two-pass `pdflatex`, cleans aux files, verifies 1 page
 * `generate_outreach`
+* `lint_cv`, `tailor_cv`
+* `log_application`, `update_application`, `followups`, `auto_match_and_log`, `list_applications`
+
+### Truthful by construction: `profile.yaml`, `lint`, `tailor`
+`profile.yaml` is the single source of truth for what you can claim: identity, dates, allowed percentage metrics and real skills.
+
+```bash
+./career_agent/career_agent.py lint                 # identity, unverified metrics/skills, es/en parity,
+                                                    # wrong-language text, LaTeX escapes, PDF pages/staleness
+./career_agent/career_agent.py tailor "<job url>"   # best track + only truthful keywords -> applications/<job>/
+./career_agent/career_agent.py tailor --text-file job.txt --company Acme --role "Backend Engineer"
+./career_agent/career_agent.py update 1 "Entrevista"  # status changes; "Aplicado" schedules a follow-up in 7 days
+./career_agent/career_agent.py followups            # overdue follow-ups with ready-to-send email drafts
+python3 -m unittest discover -s tests               # test suite
+```
+The tracker's CSV is the source of truth (the xlsx is regenerated from it) and re-logging the same URL updates the row instead of duplicating it.
 
 ---
 
@@ -139,11 +158,15 @@ See [browser_agent/README.md](./browser_agent/README.md) for full instructions a
 career-agent-mcp/
 ├── .gitignore                         <-- Ignores PDFs, logs, and private profile.json
 ├── README.md                          <-- Master documentation
-├── profile.example.json               <-- Template profile configuration
+├── profile.example.json               <-- Template browser-autofill profile
+├── profile.example.yaml               <-- Template facts file used by lint and tailor
 ├── compile.sh                         <-- Multi-version 1-page batch compiler
 ├── ADAPTATION_PROMPT.md               <-- Master LLM adaptation prompt
 ├── career_agent/
-│   └── career_agent.py                <-- Dual-mode CLI & MCP stdio server
+│   ├── career_agent.py                <-- Dual-mode CLI & MCP stdio server
+│   ├── tracker.py, lint.py, tailor.py <-- Tracker, CV linter, per-job tailoring
+│   ├── keywords.py, cv_profile.py     <-- ATS glossary, profile loader
+├── tests/                             <-- unittest suite
 ├── browser_agent/
 │   ├── README.md                      <-- Browser automation protocol guide
 │   └── autofill_config.example.json   <-- ATS selector mappings

@@ -9,15 +9,32 @@ Description: Self-hosted, zero-dependency job search, ATS auditing, and CV autom
 import sys
 import os
 import json
+import csv
 import re
 import subprocess
+import urllib.parse
 import urllib.request
 import urllib.error
+from datetime import date
 from pathlib import Path
 from html.parser import HTMLParser
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import tracker
+from cv_profile import load_profile
+from keywords import terms_in
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 VERSIONS_DIR = BASE_DIR / "versions"
+
+TRACKS = [
+    "01_backend_engineer",
+    "02_fullstack_engineer",
+    "03_systems_performance_cplusplus",
+    "04_ai_software_engineer",
+    "05_data_analyst",
+]
 
 TRACK_MAP = {
     "01": "01_backend_engineer",
@@ -33,23 +50,40 @@ TRACK_MAP = {
     "data": "05_data_analyst"
 }
 
+def _profile() -> dict:
+    try:
+        return load_profile()
+    except OSError:
+        return {}
+
+
+_PREFS = _profile().get("preferences", {})
+DEFAULT_SALARY = _PREFS.get("salary", "")
+DEFAULT_MODALITY = _PREFS.get("modality", "")
+MAX_JOB_CHARS = 20000
+MIN_JOB_WORDS = 80
+
+
 class CleanHTMLTextExtractor(HTMLParser):
+    """Collects visible text, skipping script/style/nav/etc. (nesting-aware)."""
+
+    IGNORED = {'script', 'style', 'noscript', 'nav', 'footer', 'svg', 'head', 'template'}
+
     def __init__(self):
         super().__init__()
         self.text_blocks = []
-        self.ignore_tag = False
-        self.ignored_tags = {'script', 'style', 'noscript', 'nav', 'footer', 'svg', 'head'}
+        self.ignore_depth = 0
 
     def handle_starttag(self, tag, attrs):
-        if tag.lower() in self.ignored_tags:
-            self.ignore_tag = True
+        if tag.lower() in self.IGNORED:
+            self.ignore_depth += 1
 
     def handle_endtag(self, tag):
-        if tag.lower() in self.ignored_tags:
-            self.ignore_tag = False
+        if tag.lower() in self.IGNORED and self.ignore_depth > 0:
+            self.ignore_depth -= 1
 
     def handle_data(self, data):
-        if not self.ignore_tag:
+        if not self.ignore_depth:
             clean = data.strip()
             if clean:
                 self.text_blocks.append(clean)
@@ -58,33 +92,91 @@ class CleanHTMLTextExtractor(HTMLParser):
         return "\n".join(self.text_blocks)
 
 
+def html_to_text(html: str) -> str:
+    parser = CleanHTMLTextExtractor()
+    parser.feed(html)
+    return parser.get_text()
+
+
+def _find_job_posting(node):
+    """Depth-first search for a schema.org JobPosting object in parsed JSON-LD."""
+    if isinstance(node, list):
+        for item in node:
+            found = _find_job_posting(item)
+            if found:
+                return found
+    elif isinstance(node, dict):
+        kind = node.get("@type")
+        if kind == "JobPosting" or (isinstance(kind, list) and "JobPosting" in kind):
+            return node
+        for value in node.values():
+            found = _find_job_posting(value)
+            if found:
+                return found
+    return None
+
+
+def extract_job_meta(html: str) -> dict:
+    """Pulls title/company/description from JSON-LD JobPosting, falling back to og:/<title> tags."""
+    meta = {"title": "", "company": "", "description": ""}
+    for blob in re.findall(r'<script[^>]+application/ld\+json[^>]*>(.*?)</script>', html, re.S | re.I):
+        try:
+            posting = _find_job_posting(json.loads(blob))
+        except ValueError:
+            continue
+        if posting:
+            org = posting.get("hiringOrganization")
+            meta["title"] = str(posting.get("title") or "")
+            meta["company"] = str(org.get("name") if isinstance(org, dict) else org or "")
+            meta["description"] = html_to_text(str(posting.get("description") or ""))
+            break
+    if not meta["title"]:
+        og = re.search(r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)', html, re.I)
+        title = re.search(r'<title[^>]*>(.*?)</title>', html, re.S | re.I)
+        raw = og.group(1) if og else (title.group(1) if title else "")
+        meta["title"] = re.sub(r'\s+', ' ', raw).strip()
+    if not meta["company"]:
+        site = re.search(r'<meta[^>]+property=["\']og:site_name["\'][^>]+content=["\']([^"\']+)', html, re.I)
+        meta["company"] = site.group(1).strip() if site else ""
+    return meta
+
+
 def scrape_job(url: str) -> dict:
     """Scrapes a job posting from any URL (Greenhouse, Lever, LinkedIn, Workday, etc.)."""
+    if not url.lower().startswith(("http://", "https://")):
+        return {"status": "error", "message": f"Not an http(s) URL: {url}"}
     headers = {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
     }
     req = urllib.request.Request(url, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            content = resp.read().decode('utf-8', errors='ignore')
-            parser = CleanHTMLTextExtractor()
-            parser.feed(content)
-            extracted_text = parser.get_text()
-            
-            # Extract common job signals
-            lines = [l for l in extracted_text.splitlines() if len(l) > 3]
-            preview = lines[:40]
-            
-            return {
-                "status": "success",
-                "url": url,
-                "character_count": len(extracted_text),
-                "word_count": len(extracted_text.split()),
-                "extracted_text": extracted_text[:12000] # Limit to relevant length
-            }
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            charset = resp.headers.get_content_charset() or "utf-8"
+            content = resp.read().decode(charset, errors="ignore")
     except Exception as e:
-        return {"status": "error", "message": f"Failed to scrape {url}: {str(e)}"}
+        return {"status": "error", "message": f"Failed to scrape {url}: {e}"}
+
+    meta = extract_job_meta(content)
+    text = html_to_text(content)
+    if len(meta["description"].split()) > len(text.split()):
+        text = meta["description"]
+
+    result = {
+        "status": "success",
+        "url": url,
+        "title": meta["title"],
+        "company": meta["company"],
+        "character_count": len(text),
+        "word_count": len(text.split()),
+        "extracted_text": text[:MAX_JOB_CHARS],
+    }
+    if result["word_count"] < MIN_JOB_WORDS:
+        result["warning"] = (
+            "Very little text extracted: the page is probably rendered with JavaScript or behind a login. "
+            "Paste the job description manually (match --text / tailor --text-file) instead of trusting this score."
+        )
+    return result
 
 
 def search_remote_jobs(query: str, limit: int = 10) -> dict:
@@ -95,605 +187,496 @@ def search_remote_jobs(query: str, limit: int = 10) -> dict:
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode('utf-8'))
-            jobs = []
-            for item in data.get("jobs", [])[:limit]:
-                # Clean HTML description
-                parser = CleanHTMLTextExtractor()
-                parser.feed(item.get("description", ""))
-                clean_desc = parser.get_text()[:400] + "..."
-
-                jobs.append({
-                    "id": item.get("id"),
-                    "title": item.get("title"),
-                    "company": item.get("company_name"),
-                    "category": item.get("category"),
-                    "candidate_required_location": item.get("candidate_required_location"),
-                    "salary": item.get("salary") or "Not specified",
-                    "url": item.get("url"),
-                    "snippet": clean_desc
-                })
-            return {"status": "success", "count": len(jobs), "jobs": jobs}
     except Exception as e:
-        return {"status": "error", "message": f"Search failed: {str(e)}"}
+        return {"status": "error", "message": f"Search failed: {e}"}
+
+    jobs = []
+    for item in data.get("jobs", [])[:limit]:
+        snippet = html_to_text(item.get("description", ""))[:400]
+        jobs.append({
+            "id": item.get("id"),
+            "title": item.get("title"),
+            "company": item.get("company_name"),
+            "category": item.get("category"),
+            "candidate_required_location": item.get("candidate_required_location"),
+            "salary": item.get("salary") or "Not specified",
+            "url": item.get("url"),
+            "snippet": snippet + ("..." if len(snippet) == 400 else "")
+        })
+    return {"status": "success", "count": len(jobs), "jobs": jobs}
 
 
-def analyze_ats_fit(track: str, job_text: str, language: str = "en") -> dict:
-    """Audits ATS keywords between a Job Description and candidate's local CV track."""
-    resolved_track = TRACK_MAP.get(track.lower(), track)
-    track_dir = VERSIONS_DIR / resolved_track / language
-    
-    if not track_dir.exists():
-        return {"status": "error", "message": f"Track directory not found: {track_dir}"}
-    
-    tex_files = list(track_dir.glob("*.tex"))
-    if not tex_files:
-        return {"status": "error", "message": f"No .tex file found in {track_dir}"}
-    
-    cv_content = tex_files[0].read_text(encoding="utf-8").lower()
-    job_lower = job_text.lower()
-    
-    # Common tech keywords to audit
-    KEYWORDS_POOL = [
-        "python", "c++", "node.js", "typescript", "javascript", "fastapi", "react", "next.js",
-        "docker", "postgresql", "sqlite", "redis", "linux", "mcp", "model context protocol",
-        "rest", "api", "webhooks", "graphql", "langchain", "langgraph", "agentic", "agents",
-        "llm", "openai", "anthropic", "whisper", "embeddings", "vector", "bm25", "rag",
-        "json schema", "function calling", "tool use", "streaming", "owasp", "security",
-        "jwt", "rbac", "ci/cd", "git", "github actions", "machine learning", "scikit-learn",
-        "random forest", "k-means", "eda", "cross-validation", "profiling", "arm", "dma"
-    ]
-    
-    required_keywords = [kw for kw in KEYWORDS_POOL if re.search(r'\b' + re.escape(kw) + r'\b', job_lower)]
-    matching_keywords = [kw for kw in required_keywords if re.search(r'\b' + re.escape(kw) + r'\b', cv_content)]
-    missing_keywords = [kw for kw in required_keywords if kw not in matching_keywords]
-    
-    match_percentage = (len(matching_keywords) / len(required_keywords) * 100) if required_keywords else 100.0
-    
+# -------------------------------------------------------------
+# ATS MATCHING
+# -------------------------------------------------------------
+
+def tex_to_plain(tex: str) -> str:
+    """Undo the LaTeX escapes that would hide keywords from the matcher."""
+    for src, dst in ((r"\&", "&"), (r"\%", "%"), (r"\_", "_"), (r"\#", "#"), (r"\textbar", "|")):
+        tex = tex.replace(src, dst)
+    return tex
+
+
+def score_cv_text(job_text: str, cv_tex: str) -> dict:
+    """Compares glossary terms required by the job against those present in a CV's text."""
+    required = terms_in(job_text)
+    have = set(terms_in(tex_to_plain(cv_tex)))
+    matching = [t for t in required if t in have]
+    missing = [t for t in required if t not in have]
+    real_skills = set(load_profile().get("skills", []))
+    pct = (len(matching) / len(required) * 100) if required else 100.0
     return {
-        "status": "success",
-        "track_analyzed": resolved_track,
-        "language": language,
-        "cv_file": str(tex_files[0]),
-        "match_percentage": round(match_percentage, 1),
-        "total_job_tech_keywords": len(required_keywords),
-        "matching_keywords": matching_keywords,
-        "missing_keywords": missing_keywords,
-        "recommendation": "High Fit (>85%) - Ready to apply" if match_percentage >= 85 else "Add missing keywords to Technical Skills or Summary before applying"
+        "match_percentage": round(pct, 1),
+        "total_job_tech_keywords": len(required),
+        "matching_keywords": matching,
+        "missing_keywords": missing,
+        "addable_keywords": [t for t in missing if t in real_skills],
+        "gap_keywords": [t for t in missing if t not in real_skills],
     }
 
 
-def compile_cv(tex_path: str) -> dict:
-    """Compiles a .tex file and verifies strict 1-page compliance."""
-    path = Path(tex_path)
-    if not path.is_absolute():
-        path = BASE_DIR / path
-        
-    if not path.exists():
-        return {"status": "error", "message": f"File does not exist: {path}"}
-        
-    output_dir = path.parent
-    cmd = ["pdflatex", "-interaction=batchmode", f"-output-directory={output_dir}", str(path)]
-    
+def find_cv_tex(track: str, language: str) -> Path:
+    resolved = TRACK_MAP.get(track.lower(), track)
+    track_dir = VERSIONS_DIR / resolved / language
+    if not track_dir.exists():
+        raise FileNotFoundError(f"Track directory not found: {track_dir}")
+    tex_files = sorted(track_dir.glob("*.tex"))
+    if not tex_files:
+        raise FileNotFoundError(f"No .tex file found in {track_dir}")
+    return tex_files[0]
+
+
+def analyze_ats_fit(track: str, job_text: str, language: str = "en") -> dict:
+    """Audits ATS keywords between a Job Description and your local CV track."""
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, cwd=str(output_dir))
-        pdf_path = path.with_suffix(".pdf")
-        
-        if not pdf_path.exists():
-            return {"status": "error", "message": "Compilation failed. PDF not generated.", "log": proc.stdout[-500:]}
-            
-        # Check page count
-        info_proc = subprocess.run(["pdfinfo", str(pdf_path)], capture_output=True, text=True)
-        page_match = re.search(r'Pages:\s+(\d+)', info_proc.stdout)
-        pages = int(page_match.group(1)) if page_match else -1
-        
-        return {
-            "status": "success",
-            "pdf_path": str(pdf_path),
-            "pages": pages,
-            "is_single_page": pages == 1,
-            "message": "Perfect 1-page fit!" if pages == 1 else f"Warning: Document has {pages} pages. Adjust spacing."
-        }
-    except Exception as e:
-        return {"status": "error", "message": f"Execution error: {str(e)}"}
-
-
-def generate_outreach(company: str, role: str, language: str = "en") -> dict:
-    """Generates an assertive, builder-focused recruiter pitch."""
-    if language.lower() == "es":
-        message = (
-            f"Hola Equipo de {company},\n\n"
-            f"Vi su vacante de {role} y me llamó la atención su enfoque técnico. "
-            f"Cuento con experiencia en producción optimizando microservicios de IA (reducción de un 30% en consumo de tokens), "
-            f"arquitectando servidores bajo el estándar Model Context Protocol (MCP) con búsqueda híbrida (vectores + BM25 en SQLite) "
-            f"y desarrollando backend transaccional de alta concurrencia.\n\n"
-            f"Mi enfoque es 100% de constructor que entrega sistemas funcionando en producción. "
-            f"Pueden consultar mi portafolio interactivo en {portfolio} y mi código en {github}.\n\n"
-            f"Me encantaría conversar sobre su roadmap técnico. ¡Saludos!"
-        )
+        tex = find_cv_tex(track, language)
+    except FileNotFoundError as e:
+        return {"status": "error", "message": str(e)}
+    result = score_cv_text(job_text, tex.read_text(encoding="utf-8"))
+    pct = result["match_percentage"]
+    if result["total_job_tech_keywords"] == 0:
+        recommendation = "No known tech keywords detected in the text - check that the job text was extracted correctly"
+    elif pct >= 85:
+        recommendation = "High Fit (>85%) - Ready to apply"
     else:
-        message = (
-            f"Hi {company} Team,\n\n"
-            f"I came across your {role} posting and was immediately drawn to your engineering focus. "
-            f"I specialize in building production-grade AI systems: architecting custom Model Context Protocol (MCP) servers "
-            f"with hybrid semantic search (dense vector embeddings + BM25 on SQLite), and launching AI gateway microservices "
-            f"that reduced LLM token consumption by 30% in production through semantic prompt caching and strict JSON Schema validation.\n\n"
-            f"I am a builder focused on shipping working software rather than prototypes. You can inspect my live interactive portfolio "
-            f"at {portfolio} and code repositories at {github}.\n\n"
-            f"I would love to learn more about your technical roadmap and how I can contribute from day one. Best regards!"
-        )
-    return {"status": "success", "company": company, "role": role, "language": language, "pitch": message}
-
-
-def resolve_track_pdf(track_str: str, language: str = "en") -> Path:
-    """Finds or compiles the PDF for a given track name."""
-    clean_track = track_str.split()[0].lower()
-    resolved_track = TRACK_MAP.get(clean_track, clean_track)
-    track_dir = VERSIONS_DIR / resolved_track / language
-    if track_dir.exists():
-        pdfs = list(track_dir.glob("*.pdf"))
-        if pdfs:
-            return pdfs[0]
-        texs = list(track_dir.glob("*.tex"))
-        if texs:
-            compile_cv(str(texs[0]))
-            pdfs = list(track_dir.glob("*.pdf"))
-            if pdfs:
-                return pdfs[0]
-    return None
+        recommendation = "Add the 'addable_keywords' to Technical Skills; 'gap_keywords' are not in profile.yaml and must not be claimed"
+    return {
+        "status": "success",
+        "track_analyzed": TRACK_MAP.get(track.lower(), track),
+        "language": language,
+        "cv_file": str(tex),
+        **result,
+        "recommendation": recommendation,
+    }
 
 
 def match_best_track(job_text: str, language: str = "en") -> dict:
     """Audits a job description against all 5 CV tracks and returns the track with highest match."""
-    tracks = [
-        "01_backend_engineer",
-        "02_fullstack_engineer",
-        "03_systems_performance_cplusplus",
-        "04_ai_software_engineer",
-        "05_data_analyst"
-    ]
     results = {}
-    best_track = None
-    best_score = -1.0
-    
-    for t in tracks:
+    for t in TRACKS:
         res = analyze_ats_fit(t, job_text, language)
         if res.get("status") == "success":
-            score = res.get("match_percentage", 0.0)
-            results[t] = score
-            if score > best_score:
-                best_score = score
-                best_track = t
-                
-    best_res = analyze_ats_fit(best_track, job_text, language) if best_track else {}
+            results[t] = res["match_percentage"]
+    if not results:
+        return {"status": "error", "message": f"No CV tracks found for language '{language}'"}
+    best_track = max(results, key=results.get)
     return {
         "status": "success",
         "best_track": best_track,
-        "best_score": best_score,
+        "best_score": results[best_track],
         "all_scores": results,
-        "details": best_res
+        "details": analyze_ats_fit(best_track, job_text, language),
     }
+
+
+# -------------------------------------------------------------
+# CV COMPILATION
+# -------------------------------------------------------------
+
+def page_count(pdf_path: Path) -> int:
+    proc = subprocess.run(["pdfinfo", str(pdf_path)], capture_output=True, text=True)
+    m = re.search(r'Pages:\s+(\d+)', proc.stdout)
+    return int(m.group(1)) if m else -1
+
+
+def compile_cv(tex_path: str) -> dict:
+    """Compiles a .tex file (two passes) and verifies strict 1-page compliance."""
+    path = Path(tex_path)
+    if not path.is_absolute():
+        path = BASE_DIR / path
+    if not path.exists():
+        return {"status": "error", "message": f"File does not exist: {path}"}
+
+    out_dir = path.parent
+    cmd = ["pdflatex", "-interaction=batchmode", path.name]
+    pdf_path = path.with_suffix(".pdf")
+    try:
+        pdf_path.unlink(missing_ok=True)
+        for _ in range(2):
+            proc = subprocess.run(cmd, capture_output=True, text=True, cwd=str(out_dir))
+        if not pdf_path.exists():
+            return {"status": "error", "message": "Compilation failed. PDF not generated.", "log": proc.stdout[-500:]}
+        pages = page_count(pdf_path)
+    except FileNotFoundError as e:
+        return {"status": "error", "message": f"Missing tool: {e.filename}"}
+    finally:
+        for ext in (".aux", ".log", ".out", ".toc"):
+            path.with_suffix(ext).unlink(missing_ok=True)
+
+    return {
+        "status": "success",
+        "pdf_path": str(pdf_path),
+        "pages": pages,
+        "is_single_page": pages == 1,
+        "message": "Perfect 1-page fit!" if pages == 1 else f"Warning: Document has {pages} pages. Adjust spacing."
+    }
+
+
+def resolve_track_pdf(track_str: str, language: str = "en"):
+    """Finds or compiles the PDF for a given track name."""
+    clean_track = track_str.split()[0].lower()
+    resolved_track = TRACK_MAP.get(clean_track, clean_track)
+    track_dir = VERSIONS_DIR / resolved_track / language
+    if not track_dir.exists():
+        return None
+    pdfs = sorted(track_dir.glob("*.pdf"))
+    if not pdfs:
+        texs = sorted(track_dir.glob("*.tex"))
+        if texs:
+            compile_cv(str(texs[0]))
+            pdfs = sorted(track_dir.glob("*.pdf"))
+    return pdfs[0] if pdfs else None
+
+
+# -------------------------------------------------------------
+# MESSAGES
+# -------------------------------------------------------------
+
+def generate_outreach(company: str, role: str, language: str = "en") -> dict:
+    """Recruiter pitch rendered from the `pitch` templates in profile.yaml ({company}, {role} placeholders)."""
+    profile = _profile()
+    template = (profile.get("pitch") or {}).get(language.lower()) or (profile.get("pitch") or {}).get("en")
+    if not template:
+        return {"status": "error", "message": "No `pitch` templates in profile.yaml (see profile.example.yaml)"}
+    message = template.replace("\\n", "\n").format(company=company, role=role)
+    return {"status": "success", "company": company, "role": role, "language": language, "pitch": message}
+
+
+def generate_followup(company: str, role: str, applied_on: str = "", language: str = "en") -> str:
+    """Short follow-up email to send after the application has gone quiet."""
+    ident = _profile().get("identity", {})
+    name = ident.get("name", "")
+    site = f"https://{ident['links'][0]}" if ident.get("links") else ""
+    if language.lower() == "es":
+        when = f" el {applied_on}" if applied_on else " hace unos días"
+        return (
+            f"Asunto: Seguimiento - {role}\n\n"
+            f"Hola Equipo de {company},\n\n"
+            f"Apliqué a la vacante de {role}{when} y quería confirmar que mi postulación les llegó correctamente. "
+            f"Sigo muy interesado en el puesto y con gusto comparto cualquier información adicional "
+            f"o una demo de mis proyectos ({site}).\n\n"
+            f"Gracias por su tiempo.\n{name}"
+        )
+    when = f" on {applied_on}" if applied_on else " recently"
+    return (
+        f"Subject: Following up - {role}\n\n"
+        f"Hi {company} Team,\n\n"
+        f"I applied for the {role} position{when} and wanted to make sure my application reached you. "
+        f"I'm still very interested in the role and happy to share anything else that would help, "
+        f"including a walkthrough of my projects ({site}).\n\n"
+        f"Thank you for your time.\n{name}"
+    )
+
+
+# -------------------------------------------------------------
+# TRACKER
+# -------------------------------------------------------------
+
+def _sync_xlsx(result: dict) -> dict:
+    warning = tracker.export_xlsx(tracker.read_rows(), pdf_resolver=resolve_track_pdf)
+    if warning:
+        result["warning"] = warning
+    return result
+
+
+def log_application(
+    company: str,
+    role: str,
+    expected_salary: str = DEFAULT_SALARY,
+    modality: str = DEFAULT_MODALITY,
+    url: str = "",
+    track: str = "04_ai_software_engineer (EN)",
+    ats_match: str = "N/A",
+    status: str = "Por Aplicar",
+    description: str = "",
+    notes: str = "",
+) -> dict:
+    """Logs a job application (or updates the existing one with the same URL) in the tracker."""
+    row, created = tracker.upsert({
+        "Empresa": company,
+        "Puesto / Título": role,
+        "Salario Esperado": expected_salary,
+        "Modalidad": modality,
+        "URL de Vacante": url,
+        "Track CV Usado": track,
+        "ATS Match": ats_match,
+        "Estado": status,
+        "Descripción Resumida": description,
+        "Notas / Siguiente Paso": notes,
+    })
+    lang = "es" if "(es)" in track.lower() else "en"
+    pdf = resolve_track_pdf(track, lang) if track else None
+    result = {
+        "status": "success",
+        "message": f"Application for '{role}' at '{company}' {'logged' if created else 'updated'} successfully.",
+        "tracker_csv": str(tracker.CSV_PATH),
+        "tracker_excel": str(tracker.XLSX_PATH),
+        "logged_entry": {**row, "pdf_linked": str(pdf) if pdf else "None"},
+    }
+    return _sync_xlsx(result)
+
+
+def update_application(app_id: int, status: str, notes: str = "", followup: str = "") -> dict:
+    """Changes the status (and optionally notes / follow-up date) of an existing application."""
+    result = tracker.update_status(int(app_id), status, notes, followup)
+    return _sync_xlsx(result) if result["status"] == "success" else result
+
+
+def followups(language: str = "") -> dict:
+    """Lists applications whose follow-up date has arrived, with a ready-to-send email draft."""
+    items = []
+    for r in tracker.due_followups():
+        lang = language or ("es" if "(es)" in r["Track CV Usado"].lower() else "en")
+        items.append({
+            "id": r["ID"],
+            "company": r["Empresa"],
+            "role": r["Puesto / Título"],
+            "status": r["Estado"],
+            "applied_on": r["Fecha"],
+            "followup_due": r["Seguimiento"],
+            "draft": generate_followup(r["Empresa"], r["Puesto / Título"], r["Fecha"], lang),
+        })
+    return {"status": "success", "count": len(items), "due": items}
+
+
+def list_applications() -> dict:
+    """Reads and returns all logged applications from the tracker."""
+    try:
+        apps = tracker.read_rows()
+    except (OSError, csv.Error) as e:
+        return {"status": "error", "message": f"Failed to read tracker: {e}"}
+    return {"status": "success", "count": len(apps), "applications": apps}
 
 
 def auto_match_and_log(
     url: str,
     company: str = "",
     role: str = "",
-    expected_salary: str = "$45,000 - $65,000 USD/año",
-    modality: str = "Remoto (LATAM)",
+    expected_salary: str = DEFAULT_SALARY,
+    modality: str = DEFAULT_MODALITY,
     status: str = "Por Aplicar",
     notes: str = "",
-    language: str = "en"
+    language: str = "en",
 ) -> dict:
-    """Scrapes a job posting, matches the optimal CV track, compiles the PDF, and logs to Excel."""
+    """Scrapes a job posting, matches the optimal CV track, compiles the PDF, and logs it."""
     scraped = scrape_job(url)
     if scraped.get("status") != "success":
         return scraped
-    job_text = scraped.get("extracted_text", "")
-    
+    job_text = scraped["extracted_text"]
+
     match_res = match_best_track(job_text, language)
-    best_track = match_res.get("best_track", "04_ai_software_engineer")
-    best_score = match_res.get("best_score", 0.0)
-    score_str = f"{best_score}%"
-    
+    if match_res.get("status") != "success":
+        return match_res
+    best_track, best_score = match_res["best_track"], match_res["best_score"]
+
+    host = urllib.parse.urlparse(url).hostname or "unknown"
+    company = company or scraped.get("company") or host
+    role = role or scraped.get("title") or "(revisar puesto)"
     lines = [l.strip() for l in job_text.splitlines() if len(l.strip()) > 3]
-    if not role and lines:
-        role = lines[0][:40]
-    if not company and len(lines) > 1:
-        company = lines[1][:30]
-        
-    track_label = f"{best_track} ({language.upper()})"
-    desc_snippet = " ".join(lines[2:6])[:140] + "..." if len(lines) > 2 else "Job posting extracted from URL."
-    
-    log_res = log_application(
-        company=company,
-        role=role,
-        expected_salary=expected_salary,
-        modality=modality,
-        url=url,
-        track=track_label,
-        ats_match=score_str,
-        status=status,
-        description=desc_snippet,
-        notes=notes or f"Auto-matched optimal track: {best_track} ({score_str} ATS match)"
+    desc_snippet = (" ".join(lines[:4])[:140] + "...") if lines else "Job posting extracted from URL."
+    auto_notes = f"Auto-matched optimal track: {best_track} ({best_score}% ATS match)"
+    if scraped.get("warning"):
+        auto_notes += " | WARNING: poco texto extraído, verificar manualmente"
+
+    res = log_application(
+        company=company, role=role, expected_salary=expected_salary, modality=modality, url=url,
+        track=f"{best_track} ({language.upper()})", ats_match=f"{best_score}%", status=status,
+        description=desc_snippet, notes=notes or auto_notes,
     )
-    
-    log_res["matching_analysis"] = match_res
-    return log_res
+    res["matching_analysis"] = match_res
+    if scraped.get("warning"):
+        res["scrape_warning"] = scraped["warning"]
+    return res
 
 
-def log_application(
-    company: str,
-    role: str,
-    expected_salary: str = "$45,000 - $65,000 USD/año",
-    modality: str = "Remoto (LATAM)",
-    url: str = "",
-    track: str = "04_ai_software_engineer (EN)",
-    ats_match: str = "N/A",
-    status: str = "Por Aplicar",
-    description: str = "",
-    notes: str = ""
-) -> dict:
-    """Logs or updates a job application in job_applications_tracker.xlsx and .csv with hyperlinks."""
-    from datetime import datetime
-    today_str = datetime.now().strftime("%Y-%m-%d")
-    
-    excel_path = BASE_DIR / "job_applications_tracker.xlsx"
-    csv_path = BASE_DIR / "job_applications_tracker.csv"
-    
-    headers = [
-        "ID", "Fecha", "Empresa", "Puesto / Título", "Salario Esperado", 
-        "Modalidad", "URL de Vacante", "Track CV Usado", "ATS Match", 
-        "Estado", "Descripción Resumida", "Notas / Siguiente Paso"
-    ]
-    
-    current_id = 1
-    # Excel logging
-    try:
-        import openpyxl
-        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-        from openpyxl.utils import get_column_letter
+# -------------------------------------------------------------
+# LINT / TAILOR (implemented in sibling modules)
+# -------------------------------------------------------------
 
-        if excel_path.exists():
-            wb = openpyxl.load_workbook(excel_path)
-            ws = wb.active
-        else:
-            wb = openpyxl.Workbook()
-            ws = wb.active
-            ws.title = "Postulaciones"
-            ws.views.sheetView[0].showGridLines = True
-            ws.append(headers)
-            ws.row_dimensions[1].height = 28
-            header_fill = PatternFill(start_color="122644", end_color="122644", fill_type="solid")
-            for col_idx in range(1, len(headers) + 1):
-                c = ws.cell(row=1, column=col_idx)
-                c.fill = header_fill
-                c.font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
-                c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-
-        current_id = ws.max_row
-        row_data = [
-            current_id, today_str, company, role, expected_salary,
-            modality, url, track, ats_match, status, description, notes
-        ]
-        ws.append(row_data)
-        curr_row = ws.max_row
-        ws.row_dimensions[curr_row].height = 24
-        
-        thin_border = Border(
-            left=Side(style="thin", color="D0D5DD"), right=Side(style="thin", color="D0D5DD"),
-            top=Side(style="thin", color="D0D5DD"), bottom=Side(style="thin", color="D0D5DD")
-        )
-        
-        lang_code = "es" if "(es)" in track.lower() else "en"
-        pdf_file = resolve_track_pdf(track, lang_code)
-        
-        for col_idx in range(1, len(row_data) + 1):
-            cell = ws.cell(row=curr_row, column=col_idx)
-            cell.font = Font(name="Calibri", size=10)
-            cell.border = thin_border
-            cell.alignment = Alignment(vertical="center", wrap_text=(col_idx in [11, 12]))
-            
-            if col_idx in [1, 2, 5, 6, 9]:
-                cell.alignment = Alignment(horizontal="center", vertical="center")
-                
-            # Hyperlink for URL
-            if col_idx == 7 and url.startswith("http"):
-                cell.hyperlink = url
-                cell.font = Font(name="Calibri", size=10, color="004B91", underline="single")
-                
-            # Hyperlink for CV PDF
-            if col_idx == 8 and pdf_file and pdf_file.exists():
-                cell.hyperlink = f"file://{pdf_file.resolve()}"
-                cell.font = Font(name="Calibri", size=10, color="004B91", underline="single")
-                
-            # Status styling
-            if col_idx == 10:
-                cell.alignment = Alignment(horizontal="center", vertical="center")
-                cell.font = Font(name="Calibri", size=10, bold=True)
-                if "aplicado" in status.lower():
-                    cell.fill = PatternFill(start_color="E6F4EA", end_color="E6F4EA", fill_type="solid")
-                    cell.font = Font(name="Calibri", size=10, bold=True, color="137333")
-                elif "entrevista" in status.lower():
-                    cell.fill = PatternFill(start_color="E8F0FE", end_color="E8F0FE", fill_type="solid")
-                    cell.font = Font(name="Calibri", size=10, bold=True, color="1A73E8")
-
-        wb.save(excel_path)
-    except Exception:
-        pass
-
-    # CSV logging
-    import csv
-    file_exists = csv_path.exists()
-    row_count = 1
-    if file_exists:
-        try:
-            with open(csv_path, "r", encoding="utf-8") as f:
-                row_count = sum(1 for _ in f)
-        except Exception:
-            row_count = 1
-
-    with open(csv_path, "a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        if not file_exists:
-            writer.writerow(headers)
-        writer.writerow([
-            row_count, today_str, company, role, expected_salary,
-            modality, url, track, ats_match, status, description, notes
-        ])
-
-    return {
-        "status": "success",
-        "message": f"Application for '{role}' at '{company}' logged successfully.",
-        "tracker_excel": str(excel_path),
-        "tracker_csv": str(csv_path),
-        "logged_entry": {
-            "id": current_id,
-            "date": today_str,
-            "company": company,
-            "role": role,
-            "expected_salary": expected_salary,
-            "status": status,
-            "track": track,
-            "ats_match": ats_match,
-            "pdf_linked": str(pdf_file) if pdf_file else "None"
-        }
-    }
+def lint_cv(path: str = "") -> dict:
+    """Checks CV consistency (identity, metrics, es/en parity, language, escapes, page count)."""
+    import lint
+    return lint.run(path or None)
 
 
-def list_applications() -> dict:
-    """Reads and returns all logged applications from the tracker."""
-    import csv
-    csv_path = BASE_DIR / "job_applications_tracker.csv"
-    if not csv_path.exists():
-        return {"status": "success", "count": 0, "applications": []}
-    
-    apps = []
-    try:
-        with open(csv_path, "r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                apps.append(row)
-        return {"status": "success", "count": len(apps), "applications": apps}
-    except Exception as e:
-        return {"status": "error", "message": f"Failed to read tracker: {str(e)}"}
+def tailor_cv(url: str = "", text: str = "", text_file: str = "", company: str = "", role: str = "",
+              language: str = "en", track: str = "auto", log: bool = False) -> dict:
+    """Builds a job-specific CV in applications/<company-role-date>/ from the best track."""
+    import tailor
+    return tailor.run(url=url, text=text, text_file=text_file, company=company, role=role,
+                      language=language, track=track, log=log)
 
 
 # -------------------------------------------------------------
 # MCP SERVER PROTOCOL IMPLEMENTATION (JSON-RPC 2.0 stdio)
 # -------------------------------------------------------------
 
-def run_mcp_server():
-    """Implements the standard MCP stdio JSON-RPC 2.0 server loop."""
-    
-    TOOLS_SCHEMA = [
-        {
-            "name": "scrape_job",
-            "description": "Scrape clean text and requirements from any job posting URL (Greenhouse, Lever, LinkedIn, Workday, etc.).",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "url": {"type": "string", "description": "The full HTTP/HTTPS URL of the job posting"}
-                },
-                "required": ["url"]
-            }
-        },
-        {
-            "name": "search_remote_jobs",
-            "description": "Search active remote software engineering jobs using open, free public APIs without credentials.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "query": {"type": "string", "description": "Search query e.g. 'AI Engineer', 'Python', 'Backend'"},
-                    "limit": {"type": "integer", "description": "Maximum number of jobs to return (default 10)"}
-                },
-                "required": ["query"]
-            }
-        },
-        {
-            "name": "analyze_ats_fit",
-            "description": "Audit ATS keyword match score and gap analysis between a job description and candidate's local CV tracks.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "track": {"type": "string", "description": "Target track: 'backend', 'fullstack', 'systems', 'ai', 'data'"},
-                    "job_text": {"type": "string", "description": "The raw job description text"},
-                    "language": {"type": "string", "enum": ["en", "es"], "description": "CV language: 'en' or 'es' (default: en)"}
-                },
-                "required": ["track", "job_text"]
-            }
-        },
-        {
-            "name": "compile_cv",
-            "description": "Compile any LaTeX CV file with pdflatex and verify strict 1-page compliance via pdfinfo.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "tex_path": {"type": "string", "description": "Relative or absolute path to the .tex file"}
-                },
-                "required": ["tex_path"]
-            }
-        },
-        {
-            "name": "generate_outreach",
-            "description": "Generate a concise, high-impact recruiter/hiring manager outreach pitch tailored to candidate's background.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "company": {"type": "string", "description": "Company name"},
-                    "role": {"type": "string", "description": "Job title or role name"},
-                    "language": {"type": "string", "enum": ["en", "es"], "description": "Language: 'en' or 'es'"}
-                },
-                "required": ["company", "role"]
-            }
-        },
-        {
-            "name": "log_application",
-            "description": "Log or update a job application in the tracker spreadsheet (Excel & CSV) with status, salary, and notes.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "company": {"type": "string", "description": "Company name"},
-                    "role": {"type": "string", "description": "Job title"},
-                    "expected_salary": {"type": "string", "description": "Target salary range e.g. '$45,000 - $65,000 USD/yr'"},
-                    "modality": {"type": "string", "description": "e.g. 'Remoto (LATAM)' or 'Worldwide'"},
-                    "url": {"type": "string", "description": "Job posting URL"},
-                    "track": {"type": "string", "description": "CV track used e.g. '04_ai_software_engineer (EN)'"},
-                    "ats_match": {"type": "string", "description": "ATS keyword match percentage e.g. '95%'"},
-                    "status": {"type": "string", "description": "Status: 'Por Aplicar', 'Aplicado (En Evaluación)', 'Entrevista', 'Rechazado', 'Oferta'"},
-                    "description": {"type": "string", "description": "Brief 1-2 sentence job summary"},
-                    "notes": {"type": "string", "description": "Actionable next steps or interview notes"}
-                },
-                "required": ["company", "role"]
-            }
-        },
-        {
-            "name": "auto_match_and_log",
-            "description": "Scrapes a job posting URL, evaluates all 5 CV tracks, selects the highest ATS match, compiles the PDF, and logs everything to Excel with clickable links.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "url": {"type": "string", "description": "The job posting URL"},
-                    "company": {"type": "string", "description": "Company name (optional)"},
-                    "role": {"type": "string", "description": "Job title (optional)"},
-                    "expected_salary": {"type": "string", "description": "Target salary range e.g. '$45,000 - $65,000 USD/yr'"},
-                    "status": {"type": "string", "description": "Status e.g. 'Por Aplicar' or 'Aplicado'"},
-                    "language": {"type": "string", "enum": ["en", "es"], "description": "CV language: 'en' or 'es'"}
-                },
-                "required": ["url"]
-            }
-        },
-        {
-            "name": "list_applications",
-            "description": "List all tracked job applications from the tracker spreadsheet.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+S = {"type": "string"}
+LANG = {"type": "string", "enum": ["en", "es"]}
+
+TOOLS = {
+    "scrape_job": (
+        lambda a: scrape_job(a.get("url", "")),
+        "Scrape clean text and requirements from any job posting URL (Greenhouse, Lever, LinkedIn, Workday, etc.). Returns title/company when the page exposes them.",
+        {"url": {**S, "description": "The full HTTP/HTTPS URL of the job posting"}}, ["url"]),
+    "search_remote_jobs": (
+        lambda a: search_remote_jobs(a.get("query", ""), a.get("limit", 10)),
+        "Search active remote software engineering jobs using open, free public APIs without credentials.",
+        {"query": {**S, "description": "Search query e.g. 'AI Engineer', 'Python', 'Backend'"},
+         "limit": {"type": "integer", "description": "Maximum number of jobs to return (default 10)"}}, ["query"]),
+    "analyze_ats_fit": (
+        lambda a: analyze_ats_fit(a.get("track", "ai"), a.get("job_text", ""), a.get("language", "en")),
+        "Audit ATS keyword match and gap analysis between a job description and one of your CV tracks. Separates keywords that can be added truthfully (in profile.yaml) from real gaps.",
+        {"track": {**S, "description": "Target track: 'backend', 'fullstack', 'systems', 'ai', 'data'"},
+         "job_text": {**S, "description": "The raw job description text"},
+         "language": {**LANG, "description": "CV language (default: en)"}}, ["track", "job_text"]),
+    "compile_cv": (
+        lambda a: compile_cv(a.get("tex_path", "")),
+        "Compile any LaTeX CV file with pdflatex and verify strict 1-page compliance via pdfinfo.",
+        {"tex_path": {**S, "description": "Relative or absolute path to the .tex file"}}, ["tex_path"]),
+    "generate_outreach": (
+        lambda a: generate_outreach(a.get("company", ""), a.get("role", ""), a.get("language", "en")),
+        "Generate a concise recruiter/hiring manager outreach pitch tailored to your profile.",
+        {"company": S, "role": S, "language": LANG}, ["company", "role"]),
+    "log_application": (
+        lambda a: log_application(
+            company=a.get("company", ""), role=a.get("role", ""),
+            expected_salary=a.get("expected_salary", DEFAULT_SALARY),
+            modality=a.get("modality", DEFAULT_MODALITY), url=a.get("url", ""),
+            track=a.get("track", "04_ai_software_engineer (EN)"), ats_match=a.get("ats_match", "N/A"),
+            status=a.get("status", "Por Aplicar"), description=a.get("description", ""),
+            notes=a.get("notes", "")),
+        "Log a job application in the tracker (CSV + Excel). If the URL is already tracked, that row is updated instead of duplicated.",
+        {"company": S, "role": S, "expected_salary": S, "modality": S, "url": S,
+         "track": {**S, "description": "CV track used e.g. '04_ai_software_engineer (EN)'"},
+         "ats_match": {**S, "description": "e.g. '95%'"},
+         "status": {**S, "description": "'Por Aplicar', 'Aplicado (En Evaluación)', 'Entrevista', 'Rechazado', 'Oferta'"},
+         "description": S, "notes": S}, ["company", "role"]),
+    "update_application": (
+        lambda a: update_application(a.get("id"), a.get("status", ""), a.get("notes", ""), a.get("followup", "")),
+        "Change the status of an existing tracked application (by ID). Applied -> follow-up date is set 7 days out; closed states clear it.",
+        {"id": {"type": "integer"}, "status": S, "notes": S,
+         "followup": {**S, "description": "Optional follow-up date YYYY-MM-DD"}}, ["id", "status"]),
+    "followups": (
+        lambda a: followups(a.get("language", "")),
+        "List tracked applications whose follow-up date has arrived, each with a ready-to-send follow-up email draft.",
+        {"language": {**LANG, "description": "Force draft language (default: from the CV used)"}}, []),
+    "auto_match_and_log": (
+        lambda a: auto_match_and_log(
+            url=a.get("url", ""), company=a.get("company", ""), role=a.get("role", ""),
+            expected_salary=a.get("expected_salary", DEFAULT_SALARY),
+            status=a.get("status", "Por Aplicar"), notes=a.get("notes", ""),
+            language=a.get("language", "en")),
+        "Scrape a job URL, score all 5 CV tracks, pick the best, and log it to the tracker.",
+        {"url": S, "company": S, "role": S, "expected_salary": S, "status": S, "notes": S,
+         "language": LANG}, ["url"]),
+    "list_applications": (
+        lambda a: list_applications(),
+        "List all tracked job applications.", {}, []),
+    "lint_cv": (
+        lambda a: lint_cv(a.get("path", "")),
+        "Lint the CVs: identity vs profile.yaml, unverified metrics, es/en parity, wrong-language text, LaTeX escapes, PDF page count/staleness.",
+        {"path": {**S, "description": "Optional single .tex file; default lints every version"}}, []),
+    "tailor_cv": (
+        lambda a: tailor_cv(url=a.get("url", ""), text=a.get("text", ""), text_file=a.get("text_file", ""),
+                            company=a.get("company", ""), role=a.get("role", ""),
+                            language=a.get("language", "en"), track=a.get("track", "auto"),
+                            log=bool(a.get("log", False))),
+        "Create a job-specific CV in applications/<company-role-date>/: picks the best track, adds only truthful keywords from profile.yaml, recompiles, verifies 1 page, and writes a report.",
+        {"url": S, "text": {**S, "description": "Job description text (alternative to url)"},
+         "text_file": S, "company": S, "role": S, "language": LANG,
+         "track": {**S, "description": "'auto' or backend/fullstack/systems/ai/data"},
+         "log": {"type": "boolean", "description": "Also log it in the tracker as 'Por Aplicar'"}}, []),
+}
+
+
+def _tools_schema() -> list:
+    return [
+        {"name": name, "description": desc,
+         "inputSchema": {"type": "object", "properties": props, "required": required}}
+        for name, (_fn, desc, props, required) in TOOLS.items()
     ]
 
+
+def handle_request(req: dict):
+    """Returns a JSON-RPC response dict, or None for notifications."""
+    req_id = req.get("id")
+    method = req.get("method")
+
+    if method == "initialize":
+        client_version = (req.get("params") or {}).get("protocolVersion") or "2024-11-05"
+        return {"jsonrpc": "2.0", "id": req_id, "result": {
+            "protocolVersion": client_version,
+            "capabilities": {"tools": {}},
+            "serverInfo": {"name": "career-agent-mcp", "version": "1.1.0"},
+        }}
+    if method == "ping":
+        return {"jsonrpc": "2.0", "id": req_id, "result": {}}
+    if method == "tools/list":
+        return {"jsonrpc": "2.0", "id": req_id, "result": {"tools": _tools_schema()}}
+    if method == "tools/call":
+        params = req.get("params") or {}
+        entry = TOOLS.get(params.get("name"))
+        if not entry:
+            payload, is_error = {"status": "error", "message": f"Unknown tool: {params.get('name')}"}, True
+        else:
+            try:
+                payload = entry[0](params.get("arguments") or {})
+                is_error = payload.get("status") == "error"
+            except Exception as e:
+                payload, is_error = {"status": "error", "message": f"{type(e).__name__}: {e}"}, True
+        return {"jsonrpc": "2.0", "id": req_id, "result": {
+            "content": [{"type": "text", "text": json.dumps(payload, indent=2, ensure_ascii=False)}],
+            "isError": is_error,
+        }}
+    if req_id is not None:
+        return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32601, "message": f"Method not found: {method}"}}
+    return None
+
+
+def run_mcp_server():
+    """Implements the standard MCP stdio JSON-RPC 2.0 server loop."""
     for line in sys.stdin:
         line = line.strip()
         if not line:
             continue
         try:
             req = json.loads(line)
-        except Exception:
+        except ValueError:
             continue
-
-        req_id = req.get("id")
-        method = req.get("method")
-
-        if method == "initialize":
-            resp = {
-                "jsonrpc": "2.0",
-                "id": req_id,
-                "result": {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {"tools": {}},
-                    "serverInfo": {
-                        "name": "career-agent-mcp",
-                        "version": "1.0.0"
-                    }
-                }
-            }
+        resp = handle_request(req)
+        if resp is not None:
             sys.stdout.write(json.dumps(resp) + "\n")
             sys.stdout.flush()
 
-        elif method == "notifications/initialized":
-            pass
 
-        elif method == "ping":
-            sys.stdout.write(json.dumps({"jsonrpc": "2.0", "id": req_id, "result": {}}) + "\n")
-            sys.stdout.flush()
-
-        elif method == "tools/list":
-            resp = {
-                "jsonrpc": "2.0",
-                "id": req_id,
-                "result": {"tools": TOOLS_SCHEMA}
-            }
-            sys.stdout.write(json.dumps(resp) + "\n")
-            sys.stdout.flush()
-
-        elif method == "tools/call":
-            params = req.get("params", {})
-            name = params.get("name")
-            args = params.get("arguments", {})
-
-            result_content = {}
-            if name == "scrape_job":
-                result_content = scrape_job(args.get("url", ""))
-            elif name == "search_remote_jobs":
-                result_content = search_remote_jobs(args.get("query", ""), args.get("limit", 10))
-            elif name == "analyze_ats_fit":
-                result_content = analyze_ats_fit(args.get("track", "ai"), args.get("job_text", ""), args.get("language", "en"))
-            elif name == "compile_cv":
-                result_content = compile_cv(args.get("tex_path", ""))
-            elif name == "generate_outreach":
-                result_content = generate_outreach(args.get("company", ""), args.get("role", ""), args.get("language", "en"))
-            elif name == "log_application":
-                result_content = log_application(
-                    company=args.get("company", ""),
-                    role=args.get("role", ""),
-                    expected_salary=args.get("expected_salary", "$45,000 - $65,000 USD/año"),
-                    modality=args.get("modality", "Remoto (LATAM)"),
-                    url=args.get("url", ""),
-                    track=args.get("track", "04_ai_software_engineer (EN)"),
-                    ats_match=args.get("ats_match", "N/A"),
-                    status=args.get("status", "Por Aplicar"),
-                    description=args.get("description", ""),
-                    notes=args.get("notes", "")
-                )
-            elif name == "auto_match_and_log":
-                result_content = auto_match_and_log(
-                    url=args.get("url", ""),
-                    company=args.get("company", ""),
-                    role=args.get("role", ""),
-                    expected_salary=args.get("expected_salary", "$45,000 - $65,000 USD/año"),
-                    status=args.get("status", "Por Aplicar"),
-                    notes=args.get("notes", ""),
-                    language=args.get("language", "en")
-                )
-            elif name == "list_applications":
-                result_content = list_applications()
-            else:
-                result_content = {"status": "error", "message": f"Unknown tool: {name}"}
-
-            resp = {
-                "jsonrpc": "2.0",
-                "id": req_id,
-                "result": {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": json.dumps(result_content, indent=2, ensure_ascii=False)
-                        }
-                    ]
-                }
-            }
-            sys.stdout.write(json.dumps(resp) + "\n")
-            sys.stdout.flush()
+def _read_job_arg(text_or_url: str) -> str:
+    if text_or_url.startswith(("http://", "https://")):
+        scraped = scrape_job(text_or_url)
+        if scraped.get("warning"):
+            print(f"WARNING: {scraped['warning']}", file=sys.stderr)
+        return scraped.get("extracted_text", "")
+    return text_or_url
 
 
 def main():
@@ -703,84 +686,119 @@ def main():
 
     import argparse
     parser = argparse.ArgumentParser(description="CareerAgent CLI & MCP Engine")
-    subparsers = parser.add_subparsers(dest="command", help="Sub-commands")
+    sub = parser.add_subparsers(dest="command", help="Sub-commands")
 
-    p_scrape = subparsers.add_parser("scrape", help="Scrape job text from a URL")
-    p_scrape.add_argument("url", help="Job posting URL")
+    p = sub.add_parser("scrape", help="Scrape job text from a URL")
+    p.add_argument("url")
 
-    p_search = subparsers.add_parser("search", help="Search remote jobs")
-    p_search.add_argument("query", help="Job title / skill query")
-    p_search.add_argument("--limit", type=int, default=5, help="Number of jobs")
+    p = sub.add_parser("search", help="Search remote jobs")
+    p.add_argument("query")
+    p.add_argument("--limit", type=int, default=5)
 
-    p_ats = subparsers.add_parser("match", help="Audit ATS keyword match")
-    p_ats.add_argument("track", help="Track: backend, fullstack, systems, ai, data")
-    p_ats.add_argument("text_or_url", help="Raw job text or HTTP URL")
-    p_ats.add_argument("--lang", default="en", help="Language: en or es")
+    p = sub.add_parser("match", help="Audit ATS keyword match")
+    p.add_argument("track", help="backend, fullstack, systems, ai, data")
+    p.add_argument("text_or_url", help="Raw job text or HTTP URL")
+    p.add_argument("--lang", default="en")
 
-    p_comp = subparsers.add_parser("compile", help="Compile .tex and verify 1 page")
-    p_comp.add_argument("path", help="Path to .tex file")
+    p = sub.add_parser("compile", help="Compile .tex and verify 1 page")
+    p.add_argument("path")
 
-    p_pitch = subparsers.add_parser("outreach", help="Generate recruiter outreach message")
-    p_pitch.add_argument("company", help="Company name")
-    p_pitch.add_argument("role", help="Job title")
-    p_pitch.add_argument("--lang", default="en", help="Language: en or es")
+    p = sub.add_parser("outreach", help="Generate recruiter outreach message")
+    p.add_argument("company")
+    p.add_argument("role")
+    p.add_argument("--lang", default="en")
 
-    p_log = subparsers.add_parser("log", help="Log a job application into tracker spreadsheet")
-    p_log.add_argument("--company", required=True, help="Company name")
-    p_log.add_argument("--role", required=True, help="Job title")
-    p_log.add_argument("--salary", default="$45,000 - $65,000 USD/año", help="Expected salary")
-    p_log.add_argument("--modality", default="Remoto (LATAM)", help="Modality")
-    p_log.add_argument("--url", default="", help="Job posting URL")
-    p_log.add_argument("--track", default="04_ai_software_engineer (EN)", help="CV Track used")
-    p_log.add_argument("--match", default="N/A", help="ATS match score")
-    p_log.add_argument("--status", default="Por Aplicar", help="Status")
-    p_log.add_argument("--desc", default="", help="Description")
-    p_log.add_argument("--notes", default="", help="Next steps or notes")
+    p = sub.add_parser("log", help="Log (or update by URL) a job application")
+    p.add_argument("--company", required=True)
+    p.add_argument("--role", required=True)
+    p.add_argument("--salary", default=DEFAULT_SALARY)
+    p.add_argument("--modality", default=DEFAULT_MODALITY)
+    p.add_argument("--url", default="")
+    p.add_argument("--track", default="04_ai_software_engineer (EN)")
+    p.add_argument("--match", default="N/A")
+    p.add_argument("--status", default="Por Aplicar")
+    p.add_argument("--desc", default="")
+    p.add_argument("--notes", default="")
 
-    p_automatch = subparsers.add_parser("match-and-log", help="Auto match optimal CV track, compile PDF, and log to Excel")
-    p_automatch.add_argument("url", help="Job posting URL")
-    p_automatch.add_argument("--company", default="", help="Company name")
-    p_automatch.add_argument("--role", default="", help="Job title")
-    p_automatch.add_argument("--salary", default="$45,000 - $65,000 USD/año", help="Expected salary")
-    p_automatch.add_argument("--status", default="Por Aplicar", help="Status")
-    p_automatch.add_argument("--notes", default="", help="Notes")
-    p_automatch.add_argument("--lang", default="en", help="Language: en or es")
+    p = sub.add_parser("update", help="Change the status of a tracked application")
+    p.add_argument("id", type=int)
+    p.add_argument("status")
+    p.add_argument("--notes", default="")
+    p.add_argument("--followup", default="", help="YYYY-MM-DD")
 
-    p_list = subparsers.add_parser("list-apps", help="List all logged applications from tracker")
+    p = sub.add_parser("followups", help="Applications due for follow-up, with email drafts")
+    p.add_argument("--lang", default="")
+
+    p = sub.add_parser("match-and-log", help="Auto match optimal CV track and log it")
+    p.add_argument("url")
+    p.add_argument("--company", default="")
+    p.add_argument("--role", default="")
+    p.add_argument("--salary", default=DEFAULT_SALARY)
+    p.add_argument("--status", default="Por Aplicar")
+    p.add_argument("--notes", default="")
+    p.add_argument("--lang", default="en")
+
+    sub.add_parser("list-apps", help="List all logged applications")
+
+    p = sub.add_parser("lint", help="Lint CVs against profile.yaml and for es/en parity")
+    p.add_argument("path", nargs="?", default="")
+
+    p = sub.add_parser("tailor", help="Create a job-specific CV in applications/")
+    p.add_argument("url", nargs="?", default="")
+    p.add_argument("--text-file", default="", help="Job description saved in a file ('-' for stdin)")
+    p.add_argument("--company", default="")
+    p.add_argument("--role", default="")
+    p.add_argument("--lang", default="en")
+    p.add_argument("--track", default="auto")
+    p.add_argument("--log", action="store_true", help="Also add it to the tracker")
 
     args = parser.parse_args()
+    dump = lambda obj: print(json.dumps(obj, indent=2, ensure_ascii=False))
+    exit_code = 0
 
     if args.command == "scrape":
-        print(json.dumps(scrape_job(args.url), indent=2))
+        dump(scrape_job(args.url))
     elif args.command == "search":
-        print(json.dumps(search_remote_jobs(args.query, args.limit), indent=2))
+        dump(search_remote_jobs(args.query, args.limit))
     elif args.command == "match":
-        text = args.text_or_url
-        if text.startswith("http://") or text.startswith("https://"):
-            scraped = scrape_job(text)
-            text = scraped.get("extracted_text", "")
-        print(json.dumps(analyze_ats_fit(args.track, text, args.lang), indent=2))
+        dump(analyze_ats_fit(args.track, _read_job_arg(args.text_or_url), args.lang))
     elif args.command == "compile":
-        print(json.dumps(compile_cv(args.path), indent=2))
+        dump(compile_cv(args.path))
     elif args.command == "outreach":
-        print(generate_outreach(args.company, args.role, args.lang).get("pitch"))
+        print(generate_outreach(args.company, args.role, args.lang)["pitch"])
     elif args.command == "log":
-        res = log_application(
-            company=args.company, role=args.role, expected_salary=args.salary,
-            modality=args.modality, url=args.url, track=args.track,
-            ats_match=args.match, status=args.status, description=args.desc, notes=args.notes
-        )
-        print(json.dumps(res, indent=2))
+        dump(log_application(
+            company=args.company, role=args.role, expected_salary=args.salary, modality=args.modality,
+            url=args.url, track=args.track, ats_match=args.match, status=args.status,
+            description=args.desc, notes=args.notes))
+    elif args.command == "update":
+        dump(update_application(args.id, args.status, args.notes, args.followup))
+    elif args.command == "followups":
+        res = followups(args.lang)
+        if not res["count"]:
+            print("No hay seguimientos pendientes.")
+        for item in res["due"]:
+            print(f"--- #{item['id']} {item['company']} | {item['role']} (due {item['followup_due']}) ---")
+            print(item["draft"], end="\n\n")
     elif args.command == "match-and-log":
-        res = auto_match_and_log(
-            url=args.url, company=args.company, role=args.role,
-            expected_salary=args.salary, status=args.status, notes=args.notes, language=args.lang
-        )
-        print(json.dumps(res, indent=2))
+        dump(auto_match_and_log(
+            url=args.url, company=args.company, role=args.role, expected_salary=args.salary,
+            status=args.status, notes=args.notes, language=args.lang))
     elif args.command == "list-apps":
-        print(json.dumps(list_applications(), indent=2))
+        dump(list_applications())
+    elif args.command == "lint":
+        import lint
+        res = lint_cv(args.path)
+        print(lint.format_report(res))
+        exit_code = 1 if res["errors"] else 0
+    elif args.command == "tailor":
+        res = tailor_cv(url=args.url, text_file=args.text_file, company=args.company, role=args.role,
+                        language=args.lang, track=args.track, log=args.log)
+        dump(res)
+        exit_code = 1 if res.get("status") == "error" else 0
     else:
         parser.print_help()
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":
