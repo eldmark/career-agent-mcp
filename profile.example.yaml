@@ -1,0 +1,40 @@
+# Copy to profile.yaml (gitignored) and fill in YOUR verifiable facts.
+# `lint` checks every CV against it and `tailor` only adds keywords listed under `skills`,
+# so anything not declared here can never be claimed by the tooling.
+identity:
+  name: Alex Rivera
+  email: alex.rivera@example.com
+  phone: +1 (555) 019-2834
+  location: Remote / Global
+  links: [alexrivera.dev, github.com/alexrivera-dev, linkedin.com/in/alexrivera-dev]
+
+preferences:
+  salary: "$60,000 - $80,000 USD/year"
+  modality: Remote
+
+# Recruiter pitch templates. {company} and {role} are replaced; \n is a line break.
+pitch:
+  en: "Hi {company} Team,\n\nI came across your {role} posting and it matches the kind of systems I build. [One or two sentences with your strongest, verifiable results.]\n\nMy portfolio: https://alexrivera.dev - code: https://github.com/alexrivera-dev.\n\nI would love to learn more about your roadmap. Best regards!"
+  es: "Hola Equipo de {company},\n\nVi su vacante de {role} y encaja con el tipo de sistemas que construyo. [Una o dos frases con tus resultados verificables más fuertes.]\n\nPortafolio: https://alexrivera.dev - código: https://github.com/alexrivera-dev.\n\nMe encantaría conocer más sobre su roadmap. ¡Saludos!"
+
+education:
+  school: Example University
+  start: "2020"
+
+# Optional: add `key` (text printed in the CV's role line) to have lint verify start dates.
+experience:
+  - company: Example Corp
+    start: Jun 2024
+    end: Present
+
+# Numbers allowed to appear as percentages in any CV. Lint errors on any other "NN%".
+metrics:
+  - value: 30%
+    meaning: metric that appears in the sample CVs
+  - value: 60%
+    meaning: metric that appears in the sample CVs
+  - value: 83%
+    meaning: metric that appears in the sample CVs
+
+# Skills you can really defend in an interview (canonical names from career_agent/keywords.py).
+skills: [agentic, agents, anthropic, api, arm, assembly, bm25, c, c++, ci/cd, cloudflare, cmake, concurrency, cross-validation, css, dma, docker, eda, embedded, embeddings, etl, excel, express.js, fastapi, function calling, gdb, git, github actions, go, grafana, html, java, jest, jetpack compose, json schema, jwt, k-means, langchain, langgraph, laravel, linux, llm, machine learning, mariadb, mcp, metabase, microservices, mysql, next.js, node.js, numpy, oauth, openai, owasp, pandas, php, playwright, postgresql, prisma, profiling, prompt engineering, python, random forest, rbac, react, redis, rest, scikit-learn, security, sockets, spring boot, sql, sqlite, streaming, tailwind, testing, three.js, tool use, typescript, valgrind, vector, vitest, vue, webhooks, whisper]
