@@ -1,0 +1,135 @@
+\documentclass[10pt,letterpaper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=0.35in]{geometry}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+\definecolor{primary}{RGB}{18, 38, 68}
+\definecolor{textdark}{RGB}{30, 30, 30}
+\definecolor{linkcolor}{RGB}{0, 75, 145}
+
+\hypersetup{colorlinks=true, urlcolor=linkcolor, linkcolor=linkcolor}
+\pagestyle{empty}
+\raggedbottom
+\raggedright
+
+\newcommand{\resumesection}[1]{%
+  \vspace{2pt}%
+  {\color{primary}\normalsize\bfseries\MakeUppercase{#1}}%
+  \vspace{1pt}\hrule height 0.5pt\vspace{2pt}%
+}
+
+\def\labelitemi{\color{primary}$\bullet$}
+\renewenvironment{itemize}{%
+  \begin{list}{\color{primary}$\bullet$}{%
+    \setlength{\leftmargin}{1.1em}%
+    \setlength{\itemsep}{0.5pt}%
+    \setlength{\topsep}{1pt}%
+    \setlength{\parsep}{0pt}%
+    \setlength{\partopsep}{0pt}%
+  }%
+}{%
+  \end{list}%
+}
+
+\newenvironment{skilllist}{%
+  \begin{list}{}{%
+    \setlength{\leftmargin}{0pt}%
+    \setlength{\itemsep}{0.5pt}%
+    \setlength{\topsep}{1pt}%
+    \setlength{\parsep}{0pt}%
+    \setlength{\partopsep}{0pt}%
+  }%
+}{%
+  \end{list}%
+}
+
+\begin{document}
+\color{textdark}
+
+\begin{center}
+    {\LARGE \textbf{\color{primary} Alex Rivera}} \\ \vspace{1.5pt}
+    {\large \textbf{Ingeniero de Software Full Stack \textbar\ Arquitectura Web, Backend \& Gráficos 3D}} \\ \vspace{2pt}
+    {\small
+        Remote / Global \ \textbullet \
+        +1 (555) 019-2834 \ \textbullet \
+        \href{mailto:alex.rivera@example.com}{alex.rivera@example.com} \ \textbullet \
+        \href{https://alexrivera.dev}{alexrivera.dev} \ \textbullet \
+        \href{https://github.com/alexrivera-dev}{github.com/alexrivera-dev} \ \textbullet \
+        \href{https://linkedin.com/in/alexrivera-dev}{linkedin.com/in/alexrivera-dev}
+    }
+\end{center}
+
+\vspace{-6pt}
+
+\resumesection{Perfil Profesional}
+{\small Ingeniero de Software Full Stack y estudiante de Ciencias de la Computación en la Technical University Institute. Especializado en construir productos web completos de alto impacto combinando interfaces interactivas de alto rendimiento (React, Next.js, Three.js) con arquitecturas backend robustas y seguras (TypeScript, Node.js, PostgreSQL). Trayectoria comprobable en modernización de stacks legacy, optimización de consumo de tokens en microservicios de IA (-30\%) y desarrollo de plataformas desplegadas en producción.}
+
+\resumesection{Experiencia Profesional}
+
+\textbf{Full Stack Developer} \hfill \textbf{Enterprise Cloud Systems} \\
+\textit{Modernización Full Stack, Microservicios de IA y Seguridad} \hfill Jun 2026 -- Actualidad
+\begin{itemize}
+    \item Lideré la modernización del stack tecnológico migrando aplicaciones críticas de Laravel 5 / Vue 2 hacia \textbf{Laravel 11, Vue 3, Vite y Vitest}, mejorando los tiempos de compilación y reduciendo la deuda técnica acumulada.
+    \item Diseñé y desplegué un microservicio de IA para orquestación de LLMs que redujo en un \textbf{30\% el consumo de tokens} mediante compresión de contexto, caché estructurada y validación de esquemas.
+    \item Implementé una capa desacoplada para procesar pagos con múltiples proveedores externos sobre aplicaciones web y móviles.
+    \item Ejecuté auditorías de seguridad OWASP Top 10: eliminé vulnerabilidades de SQL Injection mediante capas ORM parametrizadas y blindé el frontend contra XSS con sanitización de inputs y políticas CSP estrictas.
+    \item Diseñé componentes reutilizables de autenticación y autorización con JWT y RBAC con validación en middleware.
+\end{itemize}
+
+\vspace{1.5pt}
+
+\textbf{Full Stack Developer (Contract / Freelance)} \hfill \textbf{High-Concurrency E-Commerce Platform \& Plataformas Web} \\
+\textit{Desarrollo de Producto Web, APIs REST y Privacidad} \hfill Ene 2026 -- Actualidad
+\begin{itemize}
+    \item Desarrollé de extremo a extremo una plataforma web de e-commerce y reservas con Node.js, Express, TypeScript, Prisma ORM y PostgreSQL, con despliegue contenerizado en Docker y pruebas automatizadas en Vitest/Playwright.
+    \item Creé el Centro de Privacidad con control de consentimiento explícito, descarga de datos y pseudonimización de IPs con HMAC.
+    \item Implementé la lógica reactiva del checkout con validación de inventario en tiempo real y soporte para promociones complejas (3x2, combos y descuentos porcentuales).
+\end{itemize}
+
+\vspace{1.5pt}
+
+\textbf{Auxiliar de Cátedra (Teaching Assistant)} \hfill \textbf{Technical University Institute} \\
+\textit{Algoritmos, Estructuras de Datos y Arquitectura de Software} \hfill Ene 2026 -- Jun 2026
+\begin{itemize}
+    \item Impartí asesoría técnica semanal a más de 40 estudiantes universitarios en patrones de diseño, concurrencia y estructuras de datos, evaluando implementaciones según estándares de calidad de software y mantenibilidad.
+\end{itemize}
+
+\resumesection{Proyectos de Ingeniería}
+
+\textbf{Portafolio 3D Interactivo} \textbar\ \textit{React, Three.js, React Three Fiber, Next.js, Prisma} \hfill \href{https://alexrivera.dev}{alexrivera.dev}
+\begin{itemize}
+    \item Diseñé y desarrollé un portafolio web basado en una habitación 3D interactiva en Three.js con detección de colisiones, audio posicional, render loop optimizado para móviles y desktop, y almacenamiento distribuido en Cloudflare R2.
+    \item Incorporé un \textit{Recruiter Mode} diseñado específicamente para reducir el tiempo de evaluación técnica de candidatos en más de un 60\%, respaldado por un panel de administración para gestión dinámica de contenido.
+    \item Instrumenté telemetría en tiempo real mediante Umami Analytics y Grafana en infraestructura propia para monitoreo de sesiones.
+\end{itemize}
+
+\vspace{1pt}
+
+\textbf{Class Note AI — Asistente de Apuntes con IA} \textbar\ \textit{FastAPI, Python, Whisper, LLMs} \hfill \href{https://github.com/alexrivera-dev}{github.com/alexrivera-dev}
+\begin{itemize}
+    \item Construí una aplicación web para transformar grabaciones de audio en apuntes estructurados: pipeline con transcripción Whisper, estructuración mediante LLMs (OpenRouter) y microservicio FastAPI para renderizado de PDFs académicos con KaTeX/LaTeX.
+    \item Diseñé un frontend limpio y responsive con arquitectura desacoplada, sin exposición de claves API y CI/CD en GitHub Actions.
+\end{itemize}
+
+\vspace{1pt}
+
+\textbf{VioletHat — Motor Gráfico C++17 Multiplataforma} \textbar\ \textit{C++17, ARM, SDL2} \hfill \href{https://github.com/alexrivera-dev/gba_raycaster}{github.com/alexrivera-dev/gba\_raycaster}
+\begin{itemize}
+    \item Diseñé un motor de renderizado DDA textured en C++17 para GBA y PC, reduciendo los ciclos de CPU en un \textbf{83\%} (de 6.46M a 1.12M) y elevando la tasa de cuadros de \textbf{2.6 a 14.9 FPS} en hardware real mediante optimización de memoria IWRAM/EWRAM y punto fijo.
+\end{itemize}
+
+\resumesection{Habilidades Técnicas}
+\begin{skilllist}
+    \item \textbf{Frontend:} React, Next.js, Vue.js (Vue 3), Three.js, React Three Fiber, Vite, Tailwind CSS, TypeScript, HTML5/CSS3
+    \item \textbf{Backend:} Node.js, Express, FastAPI (Python), Laravel (PHP), Spring Boot (Java), REST APIs, Microservicios, Prisma
+    \item \textbf{Bases de Datos \& Almacenamiento:} PostgreSQL, MySQL, MariaDB, Redis, Cloudflare R2, Modelado Relacional, CTEs
+    \item \textbf{DevOps \& Seguridad:} Docker, Docker Compose, Git, GitHub Actions, Vitest, Playwright, Jest, OWASP Top 10, JWT, RBAC
+\end{skilllist}
+
+\resumesection{Educación}
+\textbf{Licenciatura en Ingeniería en Ciencias de la Computación} \hfill Technical University Institute \\
+\textit{Cursando sexto semestre (Pensum enfocado en Sistemas, Algoritmos y Arquitectura)} \hfill 2024 -- Presente
+
+\end{document}

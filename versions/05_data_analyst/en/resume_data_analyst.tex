@@ -1,0 +1,132 @@
+\documentclass[10pt,letterpaper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=0.35in]{geometry}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+\definecolor{primary}{RGB}{18, 38, 68}
+\definecolor{textdark}{RGB}{30, 30, 30}
+\definecolor{linkcolor}{RGB}{0, 75, 145}
+
+\hypersetup{colorlinks=true, urlcolor=linkcolor, linkcolor=linkcolor}
+\pagestyle{empty}
+\raggedbottom
+\raggedright
+
+\newcommand{\resumesection}[1]{%
+  \vspace{2pt}%
+  {\color{primary}\normalsize\bfseries\MakeUppercase{#1}}%
+  \vspace{1pt}\hrule height 0.5pt\vspace{2pt}%
+}
+
+\def\labelitemi{\color{primary}$\bullet$}
+\renewenvironment{itemize}{%
+  \begin{list}{\color{primary}$\bullet$}{%
+    \setlength{\leftmargin}{1.1em}%
+    \setlength{\itemsep}{0.5pt}%
+    \setlength{\topsep}{1pt}%
+    \setlength{\parsep}{0pt}%
+    \setlength{\partopsep}{0pt}%
+  }%
+}{%
+  \end{list}%
+}
+
+\newenvironment{skilllist}{%
+  \begin{list}{}{%
+    \setlength{\leftmargin}{0pt}%
+    \setlength{\itemsep}{0.5pt}%
+    \setlength{\topsep}{1pt}%
+    \setlength{\parsep}{0pt}%
+    \setlength{\partopsep}{0pt}%
+  }%
+}{%
+  \end{list}%
+}
+
+\begin{document}
+\color{textdark}
+
+\begin{center}
+    {\LARGE \textbf{\color{primary} Alex Rivera}} \\ \vspace{1.5pt}
+    {\large \textbf{Data Analyst \textbar\ Applied Machine Learning, Advanced SQL \& Predictive Modeling}} \\ \vspace{2pt}
+    {\small
+        Remote / Global \ \textbullet \
+        +1 (555) 019-2834 \ \textbullet \
+        \href{mailto:alex.rivera@example.com}{alex.rivera@example.com} \ \textbullet \
+        \href{https://alexrivera.dev}{alexrivera.dev} \ \textbullet \
+        \href{https://github.com/alexrivera-dev}{github.com/alexrivera-dev} \ \textbullet \
+        \href{https://linkedin.com/in/alexrivera-dev}{linkedin.com/in/alexrivera-dev}
+    }
+\end{center}
+
+\vspace{-6pt}
+
+\resumesection{Professional Summary}
+{\small Data Analyst and Computer Science student at Technical University Institute. Specialized in Exploratory Data Analysis (EDA), supervised and unsupervised Machine Learning modeling, Feature Engineering, and advanced SQL optimization. Hands-on experience preparing datasets with Python (Pandas, Scikit-Learn, NumPy), building ETL pipelines, customer segmentation via K-Means and PCA, Random Forest predictive analytics, and delivering business intelligence dashboards for executive decision-making.}
+
+\resumesection{Professional Experience}
+
+\textbf{Full Stack / Data-Driven Software Engineer} \hfill \textbf{Enterprise Cloud Systems} \\
+\textit{Inference Data Analytics, Schema Optimization \& SQL Auditing} \hfill Jun 2026 -- Present
+\begin{itemize}
+    \item Analyzed statistical distributions and consumption patterns in LLM payloads, architecting an AI microservice that cut \textbf{token expenditure by 30\%} through schema enforcement, semantic compression, and structured caching.
+    \item Coordinated relational database migrations, validating schema constraints, referential integrity, and eliminating data leakage across version upgrades.
+    \item Audited SQL queries across business modules, mitigating SQL Injection vulnerabilities and optimizing query execution plans for internal reporting.
+\end{itemize}
+
+\vspace{1.5pt}
+
+\textbf{Database \& Data Analyst (Contract / Freelance)} \hfill \textbf{Management Platforms \& E-Commerce} \\
+\textit{Relational Modeling, Advanced SQL (CTEs) \& Analytics Pipelines} \hfill Jan 2026 -- Present
+\begin{itemize}
+    \item Modeled PostgreSQL relational databases with Common Table Expressions (CTEs), stored procedures, triggers, and analytical views to track operational and revenue KPIs.
+    \item Developed administrative reporting dashboards to empower data-driven decision making (sales velocity, reservation trends, and customer retention).
+    \item Enforced cryptographic pseudonymization using HMAC to safeguard sensitive customer PII across audit trail logs.
+\end{itemize}
+
+\vspace{1.5pt}
+
+\textbf{Teaching Assistant (Data Structures \& Algorithms)} \hfill \textbf{Technical University Institute} \\
+\textit{Department of Computer Science} \hfill Jan 2026 -- Jun 2026
+\begin{itemize}
+    \item Mentored 40+ university students weekly in mathematical modeling, computational complexity ($O(n)$ analysis), and high-throughput data structures for efficient data processing.
+\end{itemize}
+
+\resumesection{Data Science \& Machine Learning Projects}
+
+\textbf{Predictive Modeling on AI Labor Market Disruption} \textbar\ \textit{Python, Scikit-Learn, Pandas} \hfill Tech University
+\begin{itemize}
+    \item Led multivariate exploratory data analysis on automation risk: IQR outlier handling, One-Hot Encoding, StandardScaler feature normalization, and temporal train-test splitting to prevent data leakage.
+    \item Trained and benchmarked supervised and unsupervised models (\textbf{Random Forest, Decision Trees, K-Means}), performing K-Fold Cross-Validation and hyperparameter tuning to forecast industry automation impact.
+\end{itemize}
+
+\vspace{1pt}
+
+\textbf{Customer Segmentation via K-Means \& PCA} \textbar\ \textit{Python, Scikit-Learn, Seaborn} \hfill \href{https://github.com/alexrivera-dev/Hoja-de-Trabajo-Kmeans}{github.com/alexrivera-dev/Hoja-de-Trabajo-Kmeans}
+\begin{itemize}
+    \item Built an unsupervised retail customer clustering pipeline: analyzed feature distributions, determined optimal $K$ via Silhouette Score and Elbow Method, and visualized 2D PCA orthogonal projections to derive actionable marketing cohorts.
+\end{itemize}
+
+\vspace{1pt}
+
+\textbf{Brain Lab — ETL Pipeline \& Semantic Retrieval Engine} \textbar\ \textit{Python, Vector Embeddings, BM25, SQLite}
+\begin{itemize}
+    \item Architected an ETL pipeline that ingests, cleanses, and structures multi-provider unstructured conversational logs under typed JSON Schemas.
+    \item Implemented a hybrid retrieval engine combining BM25 lexical ranking and dense vector similarity over SQLite to index conversational turns.
+\end{itemize}
+
+\resumesection{Technical Skills}
+\begin{skilllist}
+    \item \textbf{Data Analysis \& Wrangling:} Python (Pandas, NumPy, SciPy), Exploratory Data Analysis (EDA), Data Cleaning, Feature Engineering, Outlier Detection (IQR), One-Hot Encoding, Feature Scaling (StandardScaler, MinMaxScaler)
+    \item \textbf{Machine Learning \& Evaluation:} Scikit-Learn, Random Forest, Decision Trees, K-Means Clustering, PCA, Linear \& Logistic Regression, K-Fold Cross-Validation, Evaluation Metrics (MAE, RMSE, $R^2$, F1-Score, ROC/AUC Curves)
+    \item \textbf{Databases \& SQL:} Advanced SQL, PostgreSQL, MySQL, MariaDB, SQLite, Common Table Expressions (CTEs), Stored Procedures, Triggers, Relational Modeling (ER Diagrams)
+    \item \textbf{Visualization \& BI:} Matplotlib, Seaborn, Metabase, Figma, Advanced Spreadsheets / Excel
+\end{skilllist}
+
+\resumesection{Education}
+\textbf{B.S. in Computer Science} \hfill Technical University Institute \\
+\textit{Currently in 6th semester \textbar\ Core: Systems Architecture, Algorithms, Data Science \& Distributed Systems} \hfill 2024 -- Present
+
+\end{document}

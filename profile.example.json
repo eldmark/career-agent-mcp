@@ -1,0 +1,27 @@
+{
+  "personal": {
+    "first_name": "Alex",
+    "last_name": "Rivera",
+    "full_name": "Alex Rivera",
+    "email": "alex.rivera@example.com",
+    "phone": "+1 (555) 019-2834",
+    "location": "Remote / LATAM",
+    "website": "https://example.dev",
+    "github": "https://github.com/example-dev",
+    "linkedin": "https://linkedin.com/in/example-dev"
+  },
+  "roles": {
+    "primary_title": "AI & Systems Software Engineer",
+    "specializations": [
+      "Model Context Protocol (MCP) Integrations",
+      "Low-Level Systems & C++ Performance",
+      "High-Concurrency Backend Architectures",
+      "Applied Machine Learning & Data Pipelines"
+    ]
+  },
+  "preferences": {
+    "remote_only": true,
+    "target_roles": ["AI Engineer", "Backend Engineer", "Systems Engineer", "Data Engineer"],
+    "min_salary_usd": 60000
+  }
+}

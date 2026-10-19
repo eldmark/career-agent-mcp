@@ -1,0 +1,135 @@
+\documentclass[10pt,letterpaper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=0.35in]{geometry}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+\definecolor{primary}{RGB}{18, 38, 68}
+\definecolor{textdark}{RGB}{30, 30, 30}
+\definecolor{linkcolor}{RGB}{0, 75, 145}
+
+\hypersetup{colorlinks=true, urlcolor=linkcolor, linkcolor=linkcolor}
+\pagestyle{empty}
+\raggedbottom
+\raggedright
+
+\newcommand{\resumesection}[1]{%
+  \vspace{2pt}%
+  {\color{primary}\normalsize\bfseries\MakeUppercase{#1}}%
+  \vspace{1pt}\hrule height 0.5pt\vspace{2pt}%
+}
+
+\def\labelitemi{\color{primary}$\bullet$}
+\renewenvironment{itemize}{%
+  \begin{list}{\color{primary}$\bullet$}{%
+    \setlength{\leftmargin}{1.1em}%
+    \setlength{\itemsep}{0.5pt}%
+    \setlength{\topsep}{1pt}%
+    \setlength{\parsep}{0pt}%
+    \setlength{\partopsep}{0pt}%
+  }%
+}{%
+  \end{list}%
+}
+
+\newenvironment{skilllist}{%
+  \begin{list}{}{%
+    \setlength{\leftmargin}{0pt}%
+    \setlength{\itemsep}{0.5pt}%
+    \setlength{\topsep}{1pt}%
+    \setlength{\parsep}{0pt}%
+    \setlength{\partopsep}{0pt}%
+  }%
+}{%
+  \end{list}%
+}
+
+\begin{document}
+\color{textdark}
+
+\begin{center}
+    {\LARGE \textbf{\color{primary} Alex Rivera}} \\ \vspace{1.5pt}
+    {\large \textbf{Full Stack Software Engineer \textbar\ Web Architecture, Distributed Backends \& 3D Graphics}} \\ \vspace{2pt}
+    {\small
+        Remote / Global \ \textbullet \
+        +1 (555) 019-2834 \ \textbullet \
+        \href{mailto:alex.rivera@example.com}{alex.rivera@example.com} \ \textbullet \
+        \href{https://alexrivera.dev}{alexrivera.dev} \ \textbullet \
+        \href{https://github.com/alexrivera-dev}{github.com/alexrivera-dev} \ \textbullet \
+        \href{https://linkedin.com/in/alexrivera-dev}{linkedin.com/in/alexrivera-dev}
+    }
+\end{center}
+
+\vspace{-6pt}
+
+\resumesection{Professional Summary}
+{\small Full Stack Software Engineer and Computer Science student at Technical University Institute. Experienced in delivering end-to-end web products that marry high-performance interactive interfaces (React, Next.js, Three.js) with scalable, secure backend architectures (TypeScript, Node.js, PostgreSQL). Demonstrated track record in enterprise stack modernization, AI token cost optimization (-30\%), and building production applications featuring 3D graphics, rigorous automated testing, and OWASP security compliance.}
+
+\resumesection{Professional Experience}
+
+\textbf{Full Stack Software Engineer} \hfill \textbf{Enterprise Cloud Systems} \\
+\textit{Full-Stack Modernization, AI Microservices \& Web Security} \hfill Jun 2026 -- Present
+\begin{itemize}
+    \item Spearheaded platform modernization by migrating critical legacy services from Laravel 5 / Vue 2 to \textbf{Laravel 11, Vue 3, Vite, and Vitest}, substantially accelerating build times and eliminating technical debt.
+    \item Designed and deployed an AI microservice for LLM orchestration, achieving an estimated \textbf{30\% reduction in token consumption} via prompt structuring, response caching, and schema enforcement.
+    \item Integrated multiple third-party payment gateways through a decoupled architecture across web and mobile platforms.
+    \item Led OWASP Top 10 security remediations: eliminated SQL Injection vectors with parameterized query patterns and hardened the frontend against XSS using strict input sanitization and robust Content Security Policies (CSP).
+    \item Designed reusable authentication and authorization middleware leveraging JWT and Role-Based Access Control (RBAC).
+\end{itemize}
+
+\vspace{1.5pt}
+
+\textbf{Full Stack Software Engineer (Contract / Freelance)} \hfill \textbf{High-Concurrency E-Commerce Platform \& Web Platforms} \\
+\textit{End-to-End Product Architecture, RESTful APIs \& Data Privacy} \hfill Jan 2026 -- Present
+\begin{itemize}
+    \item Architected and launched an e-commerce and reservation platform using Node.js, Express, TypeScript, Prisma ORM, and PostgreSQL, containerized with Docker and tested via Vitest/Playwright CI workflows.
+    \item Developed a full Privacy Center enabling explicit consent tracking, GDPR data export workflows, and HMAC IP pseudonymization.
+    \item Implemented real-time checkout validation, inventory locking, and complex multi-tier promotional pricing (3-for-2, bundles, discounts).
+\end{itemize}
+
+\vspace{1.5pt}
+
+\textbf{Teaching Assistant (Algorithms \& Concurrency)} \hfill \textbf{Technical University Institute} \\
+\textit{Department of Computer Science} \hfill Jan 2026 -- Jun 2026
+\begin{itemize}
+    \item Mentored 40+ university students weekly in software architecture, concurrency patterns, and data structures, evaluating code solutions based on maintainability, memory safety, and algorithmic efficiency.
+\end{itemize}
+
+\resumesection{Engineering Projects}
+
+\textbf{Interactive 3D Developer Portfolio} \textbar\ \textit{React, Three.js, React Three Fiber, Next.js, Prisma} \hfill \href{https://alexrivera.dev}{alexrivera.dev}
+\begin{itemize}
+    \item Architected a 3D interactive portfolio featuring a navigable room built with Three.js, positional audio, custom collision detection, and mobile-optimized render loops, backed by Cloudflare R2 distributed object storage.
+    \item Designed a specialized \textit{Recruiter Mode} that reduces candidate evaluation time by over 60\%, supported by a headless admin dashboard for instant project updates without frontend redeployment.
+    \item Deployed self-hosted Umami Analytics and Grafana instances to monitor real-time visitor interactions and performance metrics.
+\end{itemize}
+
+\vspace{1pt}
+
+\textbf{Class Note AI — Intelligent Academic Note Pipeline} \textbar\ \textit{FastAPI, Python, Whisper, LLMs} \hfill \href{https://github.com/alexrivera-dev}{github.com/alexrivera-dev}
+\begin{itemize}
+    \item Engineered an end-to-end lecture capture application: audio recording -> Whisper speech-to-text pipeline -> LLM semantic synthesis -> FastAPI microservice compiling structured Markdown into academic KaTeX/LaTeX PDFs.
+    \item Created a modern, accessible web frontend with decoupled client-side routing, zero API-key exposure, and GitHub Actions CI/CD.
+\end{itemize}
+
+\vspace{1pt}
+
+\textbf{VioletHat — High-Performance C++17 Raycasting Engine} \textbar\ \textit{C++17, ARM, SDL2} \hfill \href{https://github.com/alexrivera-dev/gba_raycaster}{github.com/alexrivera-dev/gba\_raycaster}
+\begin{itemize}
+    \item Built a cross-platform textured DDA raycasting engine from scratch; reduced CPU cycles by \textbf{83\%} (from 6.46M to 1.12M) and boosted hardware frame rate from \textbf{2.6 to 14.9 FPS} through fixed-point math, DMA, and IWRAM/EWRAM optimization.
+\end{itemize}
+
+\resumesection{Technical Skills}
+\begin{skilllist}
+    \item \textbf{Frontend:} React, Next.js, Vue.js (Vue 3), Three.js, React Three Fiber, Vite, Tailwind CSS, TypeScript, HTML5/CSS3
+    \item \textbf{Backend:} Node.js, Express, FastAPI (Python), Laravel (PHP), Spring Boot (Java), RESTful APIs, Microservices, Prisma ORM
+    \item \textbf{Databases \& Storage:} PostgreSQL, MySQL, MariaDB, Redis, Cloudflare R2, Relational Schema Design, CTEs
+    \item \textbf{DevOps \& Security:} Docker, Docker Compose, Git, GitHub Actions, Vitest, Playwright, Jest, OWASP Top 10, JWT, RBAC
+\end{skilllist}
+
+\resumesection{Education}
+\textbf{B.S. in Computer Science} \hfill Technical University Institute \\
+\textit{Currently in 6th semester \textbar\ Core: Systems Architecture, Algorithms, Data Science \& Distributed Systems} \hfill 2024 -- Present
+
+\end{document}

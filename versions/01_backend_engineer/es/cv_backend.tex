@@ -1,0 +1,134 @@
+\documentclass[10pt,letterpaper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=0.35in]{geometry}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+\definecolor{primary}{RGB}{18, 38, 68}
+\definecolor{textdark}{RGB}{30, 30, 30}
+\definecolor{linkcolor}{RGB}{0, 75, 145}
+
+\hypersetup{colorlinks=true, urlcolor=linkcolor, linkcolor=linkcolor}
+\pagestyle{empty}
+\raggedbottom
+\raggedright
+
+\newcommand{\resumesection}[1]{%
+  \vspace{2pt}%
+  {\color{primary}\normalsize\bfseries\MakeUppercase{#1}}%
+  \vspace{1pt}\hrule height 0.5pt\vspace{2pt}%
+}
+
+\def\labelitemi{\color{primary}$\bullet$}
+\renewenvironment{itemize}{%
+  \begin{list}{\color{primary}$\bullet$}{%
+    \setlength{\leftmargin}{1.1em}%
+    \setlength{\itemsep}{0.5pt}%
+    \setlength{\topsep}{1pt}%
+    \setlength{\parsep}{0pt}%
+    \setlength{\partopsep}{0pt}%
+  }%
+}{%
+  \end{list}%
+}
+
+\newenvironment{skilllist}{%
+  \begin{list}{}{%
+    \setlength{\leftmargin}{0pt}%
+    \setlength{\itemsep}{0.5pt}%
+    \setlength{\topsep}{1pt}%
+    \setlength{\parsep}{0pt}%
+    \setlength{\partopsep}{0pt}%
+  }%
+}{%
+  \end{list}%
+}
+
+\begin{document}
+\color{textdark}
+
+\begin{center}
+    {\LARGE \textbf{\color{primary} Alex Rivera}} \\ \vspace{1.5pt}
+    {\large \textbf{Ingeniero de Software Backend \textbar\ Arquitectura de APIs y Sistemas Distribuidos}} \\ \vspace{2pt}
+    {\small
+        Remote / Global \ \textbullet \
+        +1 (555) 019-2834 \ \textbullet \
+        \href{mailto:alex.rivera@example.com}{alex.rivera@example.com} \ \textbullet \
+        \href{https://alexrivera.dev}{alexrivera.dev} \ \textbullet \
+        \href{https://github.com/alexrivera-dev}{github.com/alexrivera-dev} \ \textbullet \
+        \href{https://linkedin.com/in/alexrivera-dev}{linkedin.com/in/alexrivera-dev}
+    }
+\end{center}
+
+\vspace{-6pt}
+
+\resumesection{Perfil Profesional}
+{\small Ingeniero de Software y estudiante de Ciencias de la Computación en la Technical University Institute con experiencia profesional diseñando arquitecturas backend modulares, microservicios y APIs REST de alta concurrencia. Especializado en TypeScript, Node.js, Go, Python y PostgreSQL, con trayectoria comprobable en optimización de costos de IA (-30\% consumo de tokens), mitigación de vulnerabilidades OWASP Top 10 y modelado de bases de datos relacionales.}
+
+\resumesection{Experiencia Profesional}
+
+\textbf{Full Stack / Backend Developer} \hfill \textbf{Enterprise Cloud Systems} \\
+\textit{Desarrollo Enterprise, Seguridad y Microservicios} \hfill Jun 2026 -- Actualidad
+\begin{itemize}
+    \item Diseñé y desarrollé un microservicio de integración con LLMs que optimizó el procesamiento de peticiones, reduciendo en un \textbf{30\% el consumo de tokens} mediante compresión semántica y caché estructurada.
+    \item Rediseñé la capa de comunicación interservicios centralizando la integración de APIs, eliminando duplicidad de código y mejorando la mantenibilidad arquitectónica del ecosistema empresarial.
+    \item Lideré auditorías de seguridad OWASP Top 10 en módulos de misión crítica: erradiqué vulnerabilidades de SQL Injection con consultas parametrizadas y mitigué riesgos XSS mediante sanitización de entradas y cabeceras CSP.
+    \item Fortalecí la autenticación y control de acceso (RBAC / JWT) implementando validación estricta de firmas, gestión segura de refresh tokens y tiempos de expiración controlados.
+    \item Planifiqué y ejecuté migraciones de datos y modernización de código legacy (Laravel 5 a 11, bases de datos relacionales), garantizando integridad referencial y cero tiempo de inactividad no programado.
+\end{itemize}
+
+\vspace{1.5pt}
+
+\textbf{Backend Developer (Contract / Freelance)} \hfill \textbf{High-Concurrency E-Commerce Platform \& Proyectos Privados} \\
+\textit{Arquitectura de APIs REST, Modelado Relacional y Docker} \hfill Ene 2026 -- Actualidad
+\begin{itemize}
+    \item Construí la arquitectura backend de plataforma e-commerce con Node.js, Express, TypeScript, Prisma ORM y PostgreSQL, desplegada en contenedores Docker con pipelines de CI/CD automatizados.
+    \item Implementé un módulo de privacidad y cumplimiento normativo con pseudonimización de IPs mediante HMAC, gestión inmutable de consentimientos y políticas de retención de datos.
+    \item Diseñé el motor transaccional de pedidos y reservas de alta consistencia, soportando promociones dinámicas multinivel (3x2, combos y porcentajes) y bloqueo atómico de stock.
+\end{itemize}
+
+\vspace{1.5pt}
+
+\textbf{Auxiliar de Cátedra (Teaching Assistant)} \hfill \textbf{Technical University Institute} \\
+\textit{Algoritmos, Estructuras de Datos y Concurrencia} \hfill Ene 2026 -- Jun 2026
+\begin{itemize}
+    \item Asesoré semanalmente a más de 40 estudiantes universitarios en diseño de algoritmos, estructuras de datos avanzadas, análisis de complejidad asintótica y concurrencia en C++, Java y Linux.
+    \item Evalué soluciones de software aplicando estándares rigurosos de calidad de código, pruebas unitarias y eficiencia computacional.
+\end{itemize}
+
+\resumesection{Proyectos de Ingeniería}
+
+\textbf{VioletHat — Motor Gráfico de Raycasting de Alto Rendimiento} \textbar\ \textit{C++17, ARM, SDL2} \hfill \href{https://github.com/alexrivera-dev/gba_raycaster}{github.com/alexrivera-dev/gba\_raycaster}
+\begin{itemize}
+    \item Desarrollé desde cero un motor de raycasting DDA textured para Game Boy Advance (bare-metal ARM7TDMI) y desktop.
+    \item Optimicé el ciclo de renderizado de \textbf{6.46M a 1.12M ciclos de CPU} por frame (\textbf{reducción del 83\%}), elevando el rendimiento de \textbf{2.6 a 14.9 FPS} sostenidos mediante profiling de hardware, punto fijo, DMA y memoria IWRAM/EWRAM.
+\end{itemize}
+
+\vspace{1pt}
+
+\textbf{Servidor HTTP/1.1 Concurrente desde Cero} \textbar\ \textit{Go, TCP Sockets, Concurrencia} \hfill \href{https://github.com/alexrivera-dev/go-http}{github.com/alexrivera-dev/go-http}
+\begin{itemize}
+    \item Implementé un servidor HTTP/1.1 sobre sockets TCP nativos sin frameworks, con parsing RFC 7230, multiplexación de rutas y pools de buffers de memoria reciclables para concurrencia masiva con goroutines.
+\end{itemize}
+
+\vspace{1pt}
+
+\textbf{Intérprete de Lenguaje LISP} \textbar\ \textit{Java, Compiladores, OOP} \hfill \href{https://github.com/alexrivera-dev}{github.com/alexrivera-dev}
+\begin{itemize}
+    \item Diseñé un intérprete completo desde cero: análisis léxico, parsing AST y evaluación recursiva con entornos dinámicos y funciones de usuario.
+\end{itemize}
+
+\resumesection{Habilidades Técnicas}
+\begin{skilllist}
+    \item \textbf{Lenguajes:} TypeScript, Go, Python, Java, C/C++, PHP, SQL (PostgreSQL, MySQL, MariaDB)
+    \item \textbf{Backend \& APIs:} Node.js, Express, FastAPI, Spring Boot, Laravel, RESTful APIs, Microservicios, Prisma ORM, CTEs
+    \item \textbf{Seguridad \& Auth:} JWT, OAuth2, RBAC, OWASP Top 10 (SQLi, XSS, CSRF), Criptografía (HMAC, hashing), CSP
+    \item \textbf{Infraestructura \& Herramientas:} Docker, Docker Compose, Git, GitHub Actions, CI/CD, Linux, Redis, Postman, Vitest, Jest
+\end{skilllist}
+
+\resumesection{Educación}
+\textbf{Licenciatura en Ingeniería en Ciencias de la Computación} \hfill Technical University Institute \\
+\textit{Cursando sexto semestre (Pensum enfocado en Sistemas, Algoritmos y Arquitectura)} \hfill 2024 -- Presente
+
+\end{document}

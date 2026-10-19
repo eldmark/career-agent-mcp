@@ -1,0 +1,33 @@
+# Build & TeX Artifacts
+*.aux
+*.log
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.pdf
+
+# Environment & Sensitive User Profiles
+profile.json
+autofill_config.json
+.env
+.env.local
+*.secret
+
+# Python & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Node & Package Managers
+node_modules/
+package-lock.json
+bun.lockb
+
+# OS & Editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~

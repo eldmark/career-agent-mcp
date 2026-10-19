@@ -1,0 +1,131 @@
+\documentclass[10pt,letterpaper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=0.35in]{geometry}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+\definecolor{primary}{RGB}{18, 38, 68}
+\definecolor{textdark}{RGB}{30, 30, 30}
+\definecolor{linkcolor}{RGB}{0, 75, 145}
+
+\hypersetup{colorlinks=true, urlcolor=linkcolor, linkcolor=linkcolor}
+\pagestyle{empty}
+\raggedbottom
+\raggedright
+
+\newcommand{\resumesection}[1]{%
+  \vspace{2pt}%
+  {\color{primary}\normalsize\bfseries\MakeUppercase{#1}}%
+  \vspace{1pt}\hrule height 0.5pt\vspace{2pt}%
+}
+
+\def\labelitemi{\color{primary}$\bullet$}
+\renewenvironment{itemize}{%
+  \begin{list}{\color{primary}$\bullet$}{%
+    \setlength{\leftmargin}{1.1em}%
+    \setlength{\itemsep}{0.5pt}%
+    \setlength{\topsep}{1pt}%
+    \setlength{\parsep}{0pt}%
+    \setlength{\partopsep}{0pt}%
+  }%
+}{%
+  \end{list}%
+}
+
+\newenvironment{skilllist}{%
+  \begin{list}{}{%
+    \setlength{\leftmargin}{0pt}%
+    \setlength{\itemsep}{0.5pt}%
+    \setlength{\topsep}{1pt}%
+    \setlength{\parsep}{0pt}%
+    \setlength{\partopsep}{0pt}%
+  }%
+}{%
+  \end{list}%
+}
+
+\begin{document}
+\color{textdark}
+
+\begin{center}
+    {\LARGE \textbf{\color{primary} Alex Rivera}} \\ \vspace{1.5pt}
+    {\large \textbf{Systems \& Performance Software Engineer \textbar\ C++, Low-Level Optimization \& Concurrency}} \\ \vspace{2pt}
+    {\small
+        Remote / Global \ \textbullet \
+        +1 (555) 019-2834 \ \textbullet \
+        \href{mailto:alex.rivera@example.com}{alex.rivera@example.com} \ \textbullet \
+        \href{https://alexrivera.dev}{alexrivera.dev} \ \textbullet \
+        \href{https://github.com/alexrivera-dev}{github.com/alexrivera-dev} \ \textbullet \
+        \href{https://linkedin.com/in/alexrivera-dev}{linkedin.com/in/alexrivera-dev}
+    }
+\end{center}
+
+\vspace{-6pt}
+
+\resumesection{Professional Summary}
+{\small Systems Software Engineer and Computer Science student at Technical University Institute with deep foundations in computer systems, low-level architecture, and performance engineering. Specialized in C++17, ARM processor internals, and concurrent programming in Go and Java. Proven track record in CPU cycle optimization (-83\% cycle reduction on bare-metal hardware), memory bus alignment (DMA, IWRAM/EWRAM), zero-dependency network server implementations, and academic instruction in concurrency and algorithms.}
+
+\resumesection{Systems \& Performance Projects}
+
+\textbf{VioletHat — High-Performance Cross-Platform Raycaster} \textbar\ \textit{C++17, ARM7TDMI, SDL2} \hfill \href{https://github.com/alexrivera-dev/gba_raycaster}{github.com/alexrivera-dev/gba\_raycaster}
+\begin{itemize}
+    \item Built a textured DDA raycasting engine from scratch in C++17 targeting bare-metal Game Boy Advance hardware and desktop Linux/Windows systems via SDL2.
+    \item Reduced CPU workload from \textbf{6.46M to 1.12M cycles/frame} (\textbf{83\% reduction}), boosting sustained frame rates from \textbf{2.6 to 14.9 FPS} on hardware through empirical profiling of ROM wait-states and memory bottlenecks.
+    \item Engineered a custom rendering pipeline leveraging 16-bit fixed-point math, VBlank Direct Memory Access (DMA) framebuffer transfers, and strategic IWRAM/EWRAM section placement.
+    \item Implemented automated unit testing and cross-compilation toolchains in GitHub Actions generating verified ROM artifacts.
+\end{itemize}
+
+\vspace{1.5pt}
+
+\textbf{Concurrent HTTP/1.1 Server from Scratch} \textbar\ \textit{Go, TCP Sockets, Multithreading} \hfill \href{https://github.com/alexrivera-dev/go-http}{github.com/alexrivera-dev/go-http}
+\begin{itemize}
+    \item Developed a complete HTTP/1.1 server on raw POSIX/TCP sockets in Go without third-party frameworks, featuring a strict RFC 7230 request parser, routing multiplexer, and connection pooling.
+    \item Optimized concurrent request throughput by eliminating allocation overhead using recycled byte buffer pools and worker goroutines.
+\end{itemize}
+
+\vspace{1.5pt}
+
+\textbf{LISP Language Interpreter} \textbar\ \textit{Java, Compiler Design, Data Structures} \hfill \href{https://github.com/alexrivera-dev}{github.com/alexrivera-dev}
+\begin{itemize}
+    \item Created a functional Lisp interpreter from scratch: lexical analysis (tokenizer), recursive-descent AST parser, and recursive evaluation engine supporting lexical scoping, closures, and custom user functions.
+\end{itemize}
+
+\vspace{1.5pt}
+
+\textbf{Embedded Automation with STM32 Microcontrollers} \textbar\ \textit{C, ARM Cortex-M4, Hardware} \hfill Tech University
+\begin{itemize}
+    \item Programmed bare-metal C firmware for STM32F446RE (ARM Cortex-M4) boards, manipulating peripheral registers directly to configure high-resolution hardware timers, external interrupts (EXTI), and GPIO communication buses.
+\end{itemize}
+
+\resumesection{Professional Experience}
+
+\textbf{Teaching Assistant (Concurrency \& Algorithms)} \hfill \textbf{Technical University Institute} \\
+\textit{Department of Computer Science} \hfill Jan 2026 -- Jun 2026
+\begin{itemize}
+    \item Mentored and evaluated 40+ university students weekly in concurrent programming, thread synchronization primitives (mutexes, condition variables, semaphores), race condition mitigation, and asymptotic complexity in C++ and Java.
+    \item Built automated Linux test harnesses to benchmark student submissions for memory leaks, execution time, and algorithmic scaling.
+\end{itemize}
+
+\vspace{1.5pt}
+
+\textbf{Full Stack / Backend Software Engineer} \hfill \textbf{Enterprise Cloud Systems} \\
+\textit{Systems Optimization, Microservices \& Cryptography} \hfill Jun 2026 -- Present
+\begin{itemize}
+    \item Architected an AI gateway microservice that reduced LLM token overhead by \textbf{30\%} via algorithmic prompt compression and payload caching.
+    \item Enforced cryptographic standards and low-level data security: HMAC audit pseudonymization, parameterized query enforcement, and network packet header hardening.
+\end{itemize}
+
+\resumesection{Technical Skills}
+\begin{skilllist}
+    \item \textbf{Languages:} C++ (C++14/17), C, Go, Java, Python, TypeScript, ARM7TDMI / Thumb Assembly, SQL
+    \item \textbf{Low-Level Systems:} Fixed-Point Arithmetic, DMA, Memory Subsystems (IWRAM/EWRAM), CPU Profiling, ARM Architecture
+    \item \textbf{Concurrency \& Networking:} POSIX Threads, Goroutines, Raw TCP Sockets, HTTP/1.1 RFC, Mutexes, Semaphores, Channels
+    \item \textbf{Developer Tooling:} Linux, CMake, Make, GCC/Clang, GDB, Valgrind, Git, GitHub Actions, Docker
+\end{skilllist}
+
+\resumesection{Education}
+\textbf{B.S. in Computer Science} \hfill Technical University Institute \\
+\textit{Currently in 6th semester \textbar\ Core: Systems Architecture, Algorithms, Data Science \& Distributed Systems} \hfill 2024 -- Present
+
+\end{document}

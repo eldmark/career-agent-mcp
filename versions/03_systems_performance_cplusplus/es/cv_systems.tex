@@ -1,0 +1,131 @@
+\documentclass[10pt,letterpaper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=0.35in]{geometry}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+\definecolor{primary}{RGB}{18, 38, 68}
+\definecolor{textdark}{RGB}{30, 30, 30}
+\definecolor{linkcolor}{RGB}{0, 75, 145}
+
+\hypersetup{colorlinks=true, urlcolor=linkcolor, linkcolor=linkcolor}
+\pagestyle{empty}
+\raggedbottom
+\raggedright
+
+\newcommand{\resumesection}[1]{%
+  \vspace{2pt}%
+  {\color{primary}\normalsize\bfseries\MakeUppercase{#1}}%
+  \vspace{1pt}\hrule height 0.5pt\vspace{2pt}%
+}
+
+\def\labelitemi{\color{primary}$\bullet$}
+\renewenvironment{itemize}{%
+  \begin{list}{\color{primary}$\bullet$}{%
+    \setlength{\leftmargin}{1.1em}%
+    \setlength{\itemsep}{0.5pt}%
+    \setlength{\topsep}{1pt}%
+    \setlength{\parsep}{0pt}%
+    \setlength{\partopsep}{0pt}%
+  }%
+}{%
+  \end{list}%
+}
+
+\newenvironment{skilllist}{%
+  \begin{list}{}{%
+    \setlength{\leftmargin}{0pt}%
+    \setlength{\itemsep}{0.5pt}%
+    \setlength{\topsep}{1pt}%
+    \setlength{\parsep}{0pt}%
+    \setlength{\partopsep}{0pt}%
+  }%
+}{%
+  \end{list}%
+}
+
+\begin{document}
+\color{textdark}
+
+\begin{center}
+    {\LARGE \textbf{\color{primary} Alex Rivera}} \\ \vspace{1.5pt}
+    {\large \textbf{Ingeniero de Software de Sistemas \textbar\ C++, Optimización de Rendimiento \& Concurrencia}} \\ \vspace{2pt}
+    {\small
+        Remote / Global \ \textbullet \
+        +1 (555) 019-2834 \ \textbullet \
+        \href{mailto:alex.rivera@example.com}{alex.rivera@example.com} \ \textbullet \
+        \href{https://alexrivera.dev}{alexrivera.dev} \ \textbullet \
+        \href{https://github.com/alexrivera-dev}{github.com/alexrivera-dev} \ \textbullet \
+        \href{https://linkedin.com/in/alexrivera-dev}{linkedin.com/in/alexrivera-dev}
+    }
+\end{center}
+
+\vspace{-6pt}
+
+\resumesection{Perfil Profesional}
+{\small Ingeniero de Software y estudiante de Ciencias de la Computación en la Technical University Institute con sólida formación en sistemas computacionales, programación a bajo nivel y optimización de rendimiento. Especializado en C++17, arquitectura de procesadores ARM y desarrollo concurrente en Go y Java. Experiencia comprobada en optimización de ciclos de CPU (-83\% de ciclos en hardware embebido), análisis de memoria (DMA, IWRAM/EWRAM), desarrollo de servidores de red sin frameworks y docencia universitaria en concurrencia y algoritmos.}
+
+\resumesection{Proyectos de Sistemas y Rendimiento}
+
+\textbf{VioletHat — Motor Gráfico de Raycasting de Alto Rendimiento} \textbar\ \textit{C++17, ARM, SDL2} \hfill \href{https://github.com/alexrivera-dev/gba_raycaster}{github.com/alexrivera-dev/gba\_raycaster}
+\begin{itemize}
+    \item Desarrollé desde cero un motor de renderizado DDA con texturas en C++17 para hardware bare-metal Game Boy Advance (ARM7TDMI) y sistemas de escritorio (Linux/Windows vía SDL2).
+    \item Reduje el consumo de CPU de \textbf{6.46M a 1.12M ciclos de reloj por frame} (\textbf{reducción del 83\%}), elevando los cuadros por segundo de \textbf{2.6 a 14.9 FPS} sostenidos mediante profiling exhaustivo de cuellos de botella de hardware.
+    \item Diseñé un pipeline de renderizado con aritmética de punto fijo, transferencias directas de memoria (DMA) en VBlank, colocación estratégica de código crítico en memoria ultrarrápida IWRAM y generación procedural de mapas.
+    \item Implementé suite de pruebas automatizadas y compilación multiplataforma en GitHub Actions con artefactos ROM verificados.
+\end{itemize}
+
+\vspace{1.5pt}
+
+\textbf{Servidor HTTP/1.1 Concurrente desde Cero} \textbar\ \textit{Go, TCP Sockets, Sincronización} \hfill \href{https://github.com/alexrivera-dev/go-http}{github.com/alexrivera-dev/go-http}
+\begin{itemize}
+    \item Implementé un servidor de red HTTP/1.1 completo sobre sockets TCP nativos sin dependencias externas, programando el parser formal de especificación RFC 7230, multiplexación de rutas y control de estado de conexiones.
+    \item Optimicé el rendimiento concurrente utilizando un modelo de goroutines con pools de buffers reciclables para minimizar la presión sobre el Garbage Collector y maximizar el throughput de peticiones.
+\end{itemize}
+
+\vspace{1.5pt}
+
+\textbf{Intérprete de Lenguaje LISP} \textbar\ \textit{Java, Compiladores, Estructuras de Datos} \hfill \href{https://github.com/alexrivera-dev}{github.com/alexrivera-dev}
+\begin{itemize}
+    \item Construí un intérprete de lenguaje funcional desde cero: análisis léxico (tokenizador), parser descendente recursivo a Árbol de Sintaxis Abstracta (AST) y motor de evaluación recursiva con entornos dinámicos de memoria y closures.
+\end{itemize}
+
+\vspace{1.5pt}
+
+\textbf{Proyectos de Automatización con Microcontroladores STM32} \textbar\ \textit{C, ARM Cortex-M4, Hardware} \hfill Tech University
+\begin{itemize}
+    \item Programé firmware en C para placas STM32F446RE (ARM Cortex-M4), interactuando directamente con registros de memoria para configuración de timers de alta precisión, puertos GPIO, interrupciones externas (EXTI) y buses de comunicación.
+\end{itemize}
+
+\resumesection{Experiencia Profesional}
+
+\textbf{Auxiliar de Cátedra (Teaching Assistant)} \hfill \textbf{Technical University Institute} \\
+\textit{Concurrencia, Algoritmos y Arquitectura de Computadoras} \hfill Ene 2026 -- Jun 2026
+\begin{itemize}
+    \item Asesoré y evalué semanalmente a más de 40 estudiantes en programación concurrente, sincronización de hilos (mutexes, semáforos, monitores), prevención de race conditions y análisis asintótico de algoritmos en C++ y Java.
+    \item Diseñé benchmarks automatizados sobre plataformas Linux para calificar la eficiencia temporal y espacial de soluciones de estudiantes.
+\end{itemize}
+
+\vspace{1.5pt}
+
+\textbf{Full Stack / Backend Developer} \hfill \textbf{Enterprise Cloud Systems} \\
+\textit{Optimización de Servicios, Seguridad y Criptografía} \hfill Jun 2026 -- Actualidad
+\begin{itemize}
+    \item Diseñé un microservicio de optimización de peticiones a modelos de lenguaje que recortó en un \textbf{30\% el consumo de tokens} mediante algoritmos de compresión y caché de respuestas.
+    \item Implementé controles de seguridad a nivel de transporte y datos: pseudonimización criptográfica HMAC, eliminación de vulnerabilidades de inyección SQL y refuerzo de políticas de memoria y cabeceras de red.
+\end{itemize}
+
+\resumesection{Habilidades Técnicas}
+\begin{skilllist}
+    \item \textbf{Lenguajes:} C++ (C++14/17), C, Go, Java, Python, TypeScript, Ensamblador ARM / Thumb básico, SQL
+    \item \textbf{Sistemas \& Bajo Nivel:} Aritmética de punto fijo, DMA, Gestión de Memoria (IWRAM/EWRAM), Profiling, Hardware ARM7TDMI/Cortex-M4
+    \item \textbf{Concurrencia \& Redes:} POSIX Threads, Goroutines, Sockets TCP, HTTP/1.1 RFC, Sincronización (Mutexes, Channels)
+    \item \textbf{Herramientas \& Entornos:} Linux, CMake, Make, GCC/Clang, GDB, Valgrind, Git, GitHub Actions, Docker
+\end{skilllist}
+
+\resumesection{Educación}
+\textbf{Licenciatura en Ingeniería en Ciencias de la Computación} \hfill Technical University Institute \\
+\textit{Cursando sexto semestre (Pensum enfocado en Sistemas, Algoritmos y Arquitectura)} \hfill 2024 -- Presente
+
+\end{document}

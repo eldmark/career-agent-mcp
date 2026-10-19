@@ -1,0 +1,85 @@
+\documentclass[10pt,letterpaper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=0.35in]{geometry}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+% Clean Executive Color Palette
+\definecolor{primary}{RGB}{18, 38, 68}
+\definecolor{textdark}{RGB}{30, 30, 30}
+\definecolor{linkcolor}{RGB}{0, 75, 145}
+
+\hypersetup{colorlinks=true, urlcolor=linkcolor, linkcolor=linkcolor}
+\pagestyle{empty}
+\raggedbottom
+\raggedright
+
+% Standard ATS Section Header (No titlesec dependency)
+\newcommand{\resumesection}[1]{%
+  \vspace{2pt}%
+  {\color{primary}\normalsize\bfseries\MakeUppercase{#1}}%
+  \vspace{1pt}\hrule height 0.5pt\vspace{2pt}%
+}
+
+% Standard Compact List Environments (No enumitem dependency)
+\def\labelitemi{\color{primary}$\bullet$}
+\renewenvironment{itemize}{%
+  \begin{list}{\color{primary}$\bullet$}{%
+    \setlength{\leftmargin}{1.1em}%
+    \setlength{\itemsep}{0.5pt}%
+    \setlength{\topsep}{1pt}%
+    \setlength{\parsep}{0pt}%
+    \setlength{\partopsep}{0pt}%
+  }%
+}{%
+  \end{list}%
+}
+
+\newenvironment{skilllist}{%
+  \begin{list}{}{%
+    \setlength{\leftmargin}{0pt}%
+    \setlength{\itemsep}{0.5pt}%
+    \setlength{\topsep}{1pt}%
+    \setlength{\parsep}{0pt}%
+    \setlength{\partopsep}{0pt}%
+  }%
+}{%
+  \end{list}%
+}
+
+\begin{document}
+\color{textdark}
+
+% HEADER BLOCK
+\begin{center}
+    {\LARGE \textbf{\color{primary} {{CANDIDATE_NAME}}}} \\ \vspace{1.5pt}
+    {\large \textbf{{{PRIMARY_TITLE}}}} \\ \vspace{2pt}
+    {\small
+        {{LOCATION}} \ \textbullet \
+        {{PHONE}} \ \textbullet \
+        \href{mailto:{{EMAIL}}}{{{EMAIL}}} \ \textbullet \
+        \href{{{WEBSITE}}}{{{WEBSITE_DISPLAY}}} \ \textbullet \
+        \href{{{GITHUB}}}{{{GITHUB_DISPLAY}}} \ \textbullet \
+        \href{{{LINKEDIN}}}{{{LINKEDIN_DISPLAY}}}
+    }
+\end{center}
+
+\vspace{-6pt}
+
+\resumesection{{{SECTION_SUMMARY_TITLE}}}
+{\small {{PROFESSIONAL_SUMMARY_TEXT}}}
+
+\resumesection{{{SECTION_EXPERIENCE_TITLE}}}
+{{EXPERIENCE_CONTENT}}
+
+\resumesection{{{SECTION_PROJECTS_TITLE}}}
+{{PROJECTS_CONTENT}}
+
+\resumesection{{{SECTION_SKILLS_TITLE}}}
+{{SKILLS_CONTENT}}
+
+\resumesection{{{SECTION_EDUCATION_TITLE}}}
+{{EDUCATION_CONTENT}}
+
+\end{document}

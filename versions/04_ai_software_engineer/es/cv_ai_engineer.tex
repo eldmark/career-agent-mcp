@@ -1,0 +1,132 @@
+\documentclass[10pt,letterpaper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=0.35in]{geometry}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+\definecolor{primary}{RGB}{18, 38, 68}
+\definecolor{textdark}{RGB}{30, 30, 30}
+\definecolor{linkcolor}{RGB}{0, 75, 145}
+
+\hypersetup{colorlinks=true, urlcolor=linkcolor, linkcolor=linkcolor}
+\pagestyle{empty}
+\raggedbottom
+\raggedright
+
+\newcommand{\resumesection}[1]{%
+  \vspace{2pt}%
+  {\color{primary}\normalsize\bfseries\MakeUppercase{#1}}%
+  \vspace{1pt}\hrule height 0.5pt\vspace{2pt}%
+}
+
+\def\labelitemi{\color{primary}$\bullet$}
+\renewenvironment{itemize}{%
+  \begin{list}{\color{primary}$\bullet$}{%
+    \setlength{\leftmargin}{1.1em}%
+    \setlength{\itemsep}{0.5pt}%
+    \setlength{\topsep}{1pt}%
+    \setlength{\parsep}{0pt}%
+    \setlength{\partopsep}{0pt}%
+  }%
+}{%
+  \end{list}%
+}
+
+\newenvironment{skilllist}{%
+  \begin{list}{}{%
+    \setlength{\leftmargin}{0pt}%
+    \setlength{\itemsep}{0.5pt}%
+    \setlength{\topsep}{1pt}%
+    \setlength{\parsep}{0pt}%
+    \setlength{\partopsep}{0pt}%
+  }%
+}{%
+  \end{list}%
+}
+
+\begin{document}
+\color{textdark}
+
+\begin{center}
+    {\LARGE \textbf{\color{primary} Alex Rivera}} \\ \vspace{1.5pt}
+    {\large \textbf{Ingeniero de Software de IA \textbar\ LLMs, Pipelines de Datos \& Machine Learning Aplicado}} \\ \vspace{2pt}
+    {\small
+        Remote / Global \ \textbullet \
+        +1 (555) 019-2834 \ \textbullet \
+        \href{mailto:alex.rivera@example.com}{alex.rivera@example.com} \ \textbullet \
+        \href{https://alexrivera.dev}{alexrivera.dev} \ \textbullet \
+        \href{https://github.com/alexrivera-dev}{github.com/alexrivera-dev} \ \textbullet \
+        \href{https://linkedin.com/in/alexrivera-dev}{linkedin.com/in/alexrivera-dev}
+    }
+\end{center}
+
+\vspace{-6pt}
+
+\resumesection{Perfil Profesional}
+{\small Ingeniero de Software y estudiante de Ciencias de la Computación en la Technical University Institute especializado en ingeniería de inteligencia artificial aplicada, orquestación de Modelos de Lenguaje (LLMs) y pipelines de Machine Learning / Ciencia de Datos. Trayectoria comprobada en producción reduciendo en un 30\% el consumo de tokens en microservicios empresariales, diseñando motores de búsqueda semántica híbrida (Embeddings + BM25) con Model Context Protocol (MCP), modelado predictivo (Random Forest, K-Means, Regresión) y pipelines de transcripción con Whisper en Python y TypeScript.}
+
+\resumesection{Experiencia Profesional}
+
+\textbf{Full Stack / AI Software Engineer} \hfill \textbf{Enterprise Cloud Systems} \\
+\textit{Microservicios de IA, Optimización de Inferencia y Seguridad} \hfill Jun 2026 -- Actualidad
+\begin{itemize}
+    \item Diseñé y desplegué en producción un microservicio de optimización de inferencia con LLMs, logrando una reducción del \textbf{30\% en consumo de tokens} mediante compresión semántica de prompts, normalización de documentos y caché estructurada.
+    \item Implementé validación de esquemas tipados (JSON Schema) para garantizar salidas deterministas y evitar alucinaciones en flujos de datos.
+    \item Construí capas desacopladas de integración con proveedores de modelos de lenguaje (OpenAI, Anthropic y OpenRouter).
+    \item Ejecuté auditorías de seguridad OWASP Top 10: mitigación de inyección de prompts, erradicación de SQLi y refuerzo de JWT/RBAC.
+\end{itemize}
+
+\vspace{1.5pt}
+
+\textbf{Software Engineer (Contract / Freelance)} \hfill \textbf{Sistemas de Datos \& Agentes Autónomos} \\
+\textit{Arquitectura de APIs, Model Context Protocol (MCP) y Pipelines ETL} \hfill Ene 2026 -- Actualidad
+\begin{itemize}
+    \item Desarrollé servidores bajo el estándar Model Context Protocol (MCP) que conectan agentes inteligentes a fuentes de datos estructuradas.
+    \item Construí arquitecturas backend resilientes con Node.js, Express, TypeScript, Prisma ORM y PostgreSQL en contenedores Docker.
+    \item Implementé trazabilidad criptográfica con HMAC para auditoría y privacidad en interacciones registradas de usuarios.
+\end{itemize}
+
+\vspace{1.5pt}
+
+\textbf{Auxiliar de Cátedra (Teaching Assistant)} \hfill \textbf{Technical University Institute} \\
+\textit{Algoritmos, Estructuras de Datos y Complejidad Computacional} \hfill Ene 2026 -- Jun 2026
+\begin{itemize}
+    \item Asesoré semanalmente a 40+ estudiantes universitarios en fundamentos algorítmicos, optimización y estructuras de datos complejas.
+\end{itemize}
+
+\resumesection{Proyectos Destacados de IA y Ciencia de Datos}
+
+\textbf{Brain Lab — Motor de Memoria Cognitiva y Búsqueda Semántica Híbrida} \textbar\ \textit{Python, Vector Embeddings, BM25, MCP}
+\begin{itemize}
+    \item Diseñé un pipeline ETL que normaliza miles de registros no estructurados multi-proveedor bajo esquemas JSON estrictos.
+    \item Implementé un motor de recuperación híbrido combinando búsqueda léxica BM25 y similitud de coseno sobre embeddings vectoriales densos, sirviendo contexto indexado a agentes de IA mediante un servidor Model Context Protocol (MCP) sobre SQLite.
+\end{itemize}
+
+\vspace{1pt}
+
+\textbf{Modelo Predictivo y Análisis de Impacto de IA en el Empleo} \textbar\ \textit{Python, Scikit-Learn, Pandas, Random Forest} \hfill Tech University
+\begin{itemize}
+    \item Lideré el modelado predictivo multivariado sobre métricas de disrupción laboral: preprocesamiento y limpieza de datos, tratamiento de outliers con IQR, codificación One-Hot, escalado StandardScaler y mitigación de data leakage.
+    \item Entrené y comparé modelos supervisados y no supervisados (\textbf{Random Forest, Árboles de Decisión y K-Means}), optimizando hiperparámetros con validación cruzada K-Fold para predecir riesgo de automatización con alta precisión.
+\end{itemize}
+
+\vspace{1pt}
+
+\textbf{Class Note AI — Pipeline Inteligente de Audio a Documentos} \textbar\ \textit{Python, FastAPI, Whisper, LLMs} \hfill \href{https://github.com/alexrivera-dev}{github.com/alexrivera-dev}
+\begin{itemize}
+    \item Diseñé una plataforma integral para transformar grabaciones de audio en apuntes académicos estructurados: pipeline Whisper STT -> síntesis con LLMs -> microservicio FastAPI para renderizado de fórmulas matemáticas LaTeX/KaTeX en PDF.
+\end{itemize}
+
+\resumesection{Habilidades Técnicas}
+\begin{skilllist}
+    \item \textbf{IA \& Modelos de Lenguaje:} Integración de LLMs (OpenAI, Anthropic, Gemini, OpenRouter), Model Context Protocol (MCP), Whisper STT, Prompt Engineering, Structured JSON Outputs, Vector Embeddings, Búsqueda Híbrida (BM25)
+    \item \textbf{Ciencia de Datos \& ML:} Python, Scikit-Learn, Pandas, NumPy, SciPy, Matplotlib, Seaborn, EDA, Random Forest, K-Means, PCA, Regresión Logística y Lineal, Validación Cruzada (K-Fold), Métricas (MAE, RMSE, $R^2$, F1)
+    \item \textbf{Backend \& Cloud:} FastAPI, Node.js, Express, TypeScript, PostgreSQL, SQLite, Redis, Docker, Git, GitHub Actions, Linux
+\end{skilllist}
+
+\resumesection{Educación}
+\textbf{Licenciatura en Ingeniería en Ciencias de la Computación} \hfill Technical University Institute \\
+\textit{Cursando sexto semestre (Pensum enfocado en Sistemas, Algoritmos y Arquitectura)} \hfill 2024 -- Presente
+
+\end{document}

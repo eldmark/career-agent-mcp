@@ -1,0 +1,46 @@
+{
+  "fields": {
+    "first_name": "Alex",
+    "last_name": "Rivera",
+    "full_name": "Alex Rivera",
+    "email": "alex.rivera@example.com",
+    "phone": "+1 (555) 019-2834",
+    "location": "Remote / LATAM",
+    "linkedin_url": "https://linkedin.com/in/alexrivera-dev",
+    "github_url": "https://github.com/alexrivera-dev",
+    "portfolio_url": "https://alexrivera.dev",
+    "current_company": "Enterprise Cloud Systems",
+    "work_authorization": {
+      "requires_us_sponsorship": false,
+      "authorized_to_work_locally": true
+    }
+  },
+  "selectors": {
+    "greenhouse": {
+      "first_name": "#first_name",
+      "last_name": "#last_name",
+      "email": "#email",
+      "phone": "#phone",
+      "resume": "#resume",
+      "linkedin": "input[autocomplete='custom-question-linkedin']",
+      "submit_btn": "#submit_app"
+    },
+    "lever": {
+      "name": "input[name='name']",
+      "email": "input[name='email']",
+      "phone": "input[name='phone']",
+      "resume": "input[name='resume']",
+      "linkedin": "input[name='urls[LinkedIn]']",
+      "github": "input[name='urls[GitHub]']",
+      "portfolio": "input[name='urls[Portfolio]']",
+      "submit_btn": "#btn-submit"
+    },
+    "ashby": {
+      "name": "input[name='name']",
+      "email": "input[name='email']",
+      "phone": "input[name='phoneNumber']",
+      "resume": "input[type='file']",
+      "submit_btn": "button[type='submit']"
+    }
+  }
+}
