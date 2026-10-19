@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-CareerAgent MCP Server & CLI Engine
+CareerAgent MCP Server & CLI Tool
+Author: Marco Alejandro Díaz Castañeda
 Description: Self-hosted, zero-dependency job search, ATS auditing, and CV automation engine.
              Operates both as a CLI tool and as a stdio Model Context Protocol (MCP) server.
 """
@@ -11,31 +12,12 @@ import json
 import re
 import subprocess
 import urllib.request
-import urllib.parse
+import urllib.error
 from pathlib import Path
 from html.parser import HTMLParser
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 VERSIONS_DIR = BASE_DIR / "versions"
-
-def load_profile() -> dict:
-    """Loads active profile.json if present, falling back to profile.example.json."""
-    custom_profile = BASE_DIR / "profile.json"
-    example_profile = BASE_DIR / "profile.example.json"
-    
-    target = custom_profile if custom_profile.exists() else example_profile
-    if target.exists():
-        try:
-            return json.loads(target.read_text(encoding="utf-8"))
-        except Exception:
-            pass
-    return {
-        "personal": {
-            "full_name": "Candidate",
-            "website": "https://example.dev",
-            "github": "https://github.com/example"
-        }
-    }
 
 TRACK_MAP = {
     "01": "01_backend_engineer",
@@ -90,12 +72,16 @@ def scrape_job(url: str) -> dict:
             parser.feed(content)
             extracted_text = parser.get_text()
             
+            # Extract common job signals
+            lines = [l for l in extracted_text.splitlines() if len(l) > 3]
+            preview = lines[:40]
+            
             return {
                 "status": "success",
                 "url": url,
                 "character_count": len(extracted_text),
                 "word_count": len(extracted_text.split()),
-                "extracted_text": extracted_text[:12000]
+                "extracted_text": extracted_text[:12000] # Limit to relevant length
             }
     except Exception as e:
         return {"status": "error", "message": f"Failed to scrape {url}: {str(e)}"}
@@ -111,6 +97,7 @@ def search_remote_jobs(query: str, limit: int = 10) -> dict:
             data = json.loads(resp.read().decode('utf-8'))
             jobs = []
             for item in data.get("jobs", [])[:limit]:
+                # Clean HTML description
                 parser = CleanHTMLTextExtractor()
                 parser.feed(item.get("description", ""))
                 clean_desc = parser.get_text()[:400] + "..."
@@ -131,7 +118,7 @@ def search_remote_jobs(query: str, limit: int = 10) -> dict:
 
 
 def analyze_ats_fit(track: str, job_text: str, language: str = "en") -> dict:
-    """Audits ATS keywords between a Job Description and the target CV track."""
+    """Audits ATS keywords between a Job Description and candidate's local CV track."""
     resolved_track = TRACK_MAP.get(track.lower(), track)
     track_dir = VERSIONS_DIR / resolved_track / language
     
@@ -145,6 +132,7 @@ def analyze_ats_fit(track: str, job_text: str, language: str = "en") -> dict:
     cv_content = tex_files[0].read_text(encoding="utf-8").lower()
     job_lower = job_text.lower()
     
+    # Common tech keywords to audit
     KEYWORDS_POOL = [
         "python", "c++", "node.js", "typescript", "javascript", "fastapi", "react", "next.js",
         "docker", "postgresql", "sqlite", "redis", "linux", "mcp", "model context protocol",
@@ -193,6 +181,7 @@ def compile_cv(tex_path: str) -> dict:
         if not pdf_path.exists():
             return {"status": "error", "message": "Compilation failed. PDF not generated.", "log": proc.stdout[-500:]}
             
+        # Check page count
         info_proc = subprocess.run(["pdfinfo", str(pdf_path)], capture_output=True, text=True)
         page_match = re.search(r'Pages:\s+(\d+)', info_proc.stdout)
         pages = int(page_match.group(1)) if page_match else -1
@@ -209,12 +198,7 @@ def compile_cv(tex_path: str) -> dict:
 
 
 def generate_outreach(company: str, role: str, language: str = "en") -> dict:
-    """Generates an assertive, builder-focused recruiter pitch parameterized by profile.json."""
-    profile = load_profile()
-    personal = profile.get("personal", {})
-    portfolio = personal.get("website", "https://example.dev")
-    github = personal.get("github", "https://github.com/example")
-
+    """Generates an assertive, builder-focused recruiter pitch."""
     if language.lower() == "es":
         message = (
             f"Hola Equipo de {company},\n\n"
@@ -240,11 +224,108 @@ def generate_outreach(company: str, role: str, language: str = "en") -> dict:
     return {"status": "success", "company": company, "role": role, "language": language, "pitch": message}
 
 
+def resolve_track_pdf(track_str: str, language: str = "en") -> Path:
+    """Finds or compiles the PDF for a given track name."""
+    clean_track = track_str.split()[0].lower()
+    resolved_track = TRACK_MAP.get(clean_track, clean_track)
+    track_dir = VERSIONS_DIR / resolved_track / language
+    if track_dir.exists():
+        pdfs = list(track_dir.glob("*.pdf"))
+        if pdfs:
+            return pdfs[0]
+        texs = list(track_dir.glob("*.tex"))
+        if texs:
+            compile_cv(str(texs[0]))
+            pdfs = list(track_dir.glob("*.pdf"))
+            if pdfs:
+                return pdfs[0]
+    return None
+
+
+def match_best_track(job_text: str, language: str = "en") -> dict:
+    """Audits a job description against all 5 CV tracks and returns the track with highest match."""
+    tracks = [
+        "01_backend_engineer",
+        "02_fullstack_engineer",
+        "03_systems_performance_cplusplus",
+        "04_ai_software_engineer",
+        "05_data_analyst"
+    ]
+    results = {}
+    best_track = None
+    best_score = -1.0
+    
+    for t in tracks:
+        res = analyze_ats_fit(t, job_text, language)
+        if res.get("status") == "success":
+            score = res.get("match_percentage", 0.0)
+            results[t] = score
+            if score > best_score:
+                best_score = score
+                best_track = t
+                
+    best_res = analyze_ats_fit(best_track, job_text, language) if best_track else {}
+    return {
+        "status": "success",
+        "best_track": best_track,
+        "best_score": best_score,
+        "all_scores": results,
+        "details": best_res
+    }
+
+
+def auto_match_and_log(
+    url: str,
+    company: str = "",
+    role: str = "",
+    expected_salary: str = "$45,000 - $65,000 USD/año",
+    modality: str = "Remoto (LATAM)",
+    status: str = "Por Aplicar",
+    notes: str = "",
+    language: str = "en"
+) -> dict:
+    """Scrapes a job posting, matches the optimal CV track, compiles the PDF, and logs to Excel."""
+    scraped = scrape_job(url)
+    if scraped.get("status") != "success":
+        return scraped
+    job_text = scraped.get("extracted_text", "")
+    
+    match_res = match_best_track(job_text, language)
+    best_track = match_res.get("best_track", "04_ai_software_engineer")
+    best_score = match_res.get("best_score", 0.0)
+    score_str = f"{best_score}%"
+    
+    lines = [l.strip() for l in job_text.splitlines() if len(l.strip()) > 3]
+    if not role and lines:
+        role = lines[0][:40]
+    if not company and len(lines) > 1:
+        company = lines[1][:30]
+        
+    track_label = f"{best_track} ({language.upper()})"
+    desc_snippet = " ".join(lines[2:6])[:140] + "..." if len(lines) > 2 else "Job posting extracted from URL."
+    
+    log_res = log_application(
+        company=company,
+        role=role,
+        expected_salary=expected_salary,
+        modality=modality,
+        url=url,
+        track=track_label,
+        ats_match=score_str,
+        status=status,
+        description=desc_snippet,
+        notes=notes or f"Auto-matched optimal track: {best_track} ({score_str} ATS match)"
+    )
+    
+    log_res["matching_analysis"] = match_res
+    return log_res
+
+
 def log_application(
     company: str,
     role: str,
-    expected_salary: str = "$45,000 - $65,000 USD/yr",
-    modality: str = "Remote (LATAM)",
+    expected_salary: str = "$45,000 - $65,000 USD/año",
+    modality: str = "Remoto (LATAM)",
     url: str = "",
     track: str = "04_ai_software_engineer (EN)",
     ats_match: str = "N/A",
@@ -252,7 +333,7 @@ def log_application(
     description: str = "",
     notes: str = ""
 ) -> dict:
-    """Logs or updates a job application in job_applications_tracker.xlsx and .csv."""
+    """Logs or updates a job application in job_applications_tracker.xlsx and .csv with hyperlinks."""
     from datetime import datetime
     today_str = datetime.now().strftime("%Y-%m-%d")
     
@@ -266,9 +347,11 @@ def log_application(
     ]
     
     current_id = 1
+    # Excel logging
     try:
         import openpyxl
         from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
 
         if excel_path.exists():
             wb = openpyxl.load_workbook(excel_path)
@@ -300,13 +383,30 @@ def log_application(
             left=Side(style="thin", color="D0D5DD"), right=Side(style="thin", color="D0D5DD"),
             top=Side(style="thin", color="D0D5DD"), bottom=Side(style="thin", color="D0D5DD")
         )
+        
+        lang_code = "es" if "(es)" in track.lower() else "en"
+        pdf_file = resolve_track_pdf(track, lang_code)
+        
         for col_idx in range(1, len(row_data) + 1):
             cell = ws.cell(row=curr_row, column=col_idx)
             cell.font = Font(name="Calibri", size=10)
             cell.border = thin_border
             cell.alignment = Alignment(vertical="center", wrap_text=(col_idx in [11, 12]))
+            
             if col_idx in [1, 2, 5, 6, 9]:
                 cell.alignment = Alignment(horizontal="center", vertical="center")
+                
+            # Hyperlink for URL
+            if col_idx == 7 and url.startswith("http"):
+                cell.hyperlink = url
+                cell.font = Font(name="Calibri", size=10, color="004B91", underline="single")
+                
+            # Hyperlink for CV PDF
+            if col_idx == 8 and pdf_file and pdf_file.exists():
+                cell.hyperlink = f"file://{pdf_file.resolve()}"
+                cell.font = Font(name="Calibri", size=10, color="004B91", underline="single")
+                
+            # Status styling
             if col_idx == 10:
                 cell.alignment = Alignment(horizontal="center", vertical="center")
                 cell.font = Font(name="Calibri", size=10, bold=True)
@@ -321,6 +421,7 @@ def log_application(
     except Exception:
         pass
 
+    # CSV logging
     import csv
     file_exists = csv_path.exists()
     row_count = 1
@@ -353,7 +454,8 @@ def log_application(
             "expected_salary": expected_salary,
             "status": status,
             "track": track,
-            "ats_match": ats_match
+            "ats_match": ats_match,
+            "pdf_linked": str(pdf_file) if pdf_file else "None"
         }
     }
 
@@ -376,8 +478,13 @@ def list_applications() -> dict:
         return {"status": "error", "message": f"Failed to read tracker: {str(e)}"}
 
 
+# -------------------------------------------------------------
+# MCP SERVER PROTOCOL IMPLEMENTATION (JSON-RPC 2.0 stdio)
+# -------------------------------------------------------------
+
 def run_mcp_server():
-    """Implements standard MCP stdio JSON-RPC 2.0 server loop."""
+    """Implements the standard MCP stdio JSON-RPC 2.0 server loop."""
+    
     TOOLS_SCHEMA = [
         {
             "name": "scrape_job",
@@ -404,13 +511,13 @@ def run_mcp_server():
         },
         {
             "name": "analyze_ats_fit",
-            "description": "Audit ATS keyword match score and gap analysis between a job description and the local CV tracks.",
+            "description": "Audit ATS keyword match score and gap analysis between a job description and candidate's local CV tracks.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "track": {"type": "string", "description": "Target track: 'backend', 'fullstack', 'systems', 'ai', 'data'"},
                     "job_text": {"type": "string", "description": "The raw job description text"},
-                    "language": {"type": "string", "enum": ["en", "es"], "description": "CV language: 'en' or 'es'"}
+                    "language": {"type": "string", "enum": ["en", "es"], "description": "CV language: 'en' or 'es' (default: en)"}
                 },
                 "required": ["track", "job_text"]
             }
@@ -428,7 +535,7 @@ def run_mcp_server():
         },
         {
             "name": "generate_outreach",
-            "description": "Generate a concise, high-impact recruiter outreach pitch tailored to candidate achievements.",
+            "description": "Generate a concise, high-impact recruiter/hiring manager outreach pitch tailored to candidate's background.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -448,7 +555,7 @@ def run_mcp_server():
                     "company": {"type": "string", "description": "Company name"},
                     "role": {"type": "string", "description": "Job title"},
                     "expected_salary": {"type": "string", "description": "Target salary range e.g. '$45,000 - $65,000 USD/yr'"},
-                    "modality": {"type": "string", "description": "e.g. 'Remote (LATAM)' or 'Worldwide'"},
+                    "modality": {"type": "string", "description": "e.g. 'Remoto (LATAM)' or 'Worldwide'"},
                     "url": {"type": "string", "description": "Job posting URL"},
                     "track": {"type": "string", "description": "CV track used e.g. '04_ai_software_engineer (EN)'"},
                     "ats_match": {"type": "string", "description": "ATS keyword match percentage e.g. '95%'"},
@@ -457,6 +564,22 @@ def run_mcp_server():
                     "notes": {"type": "string", "description": "Actionable next steps or interview notes"}
                 },
                 "required": ["company", "role"]
+            }
+        },
+        {
+            "name": "auto_match_and_log",
+            "description": "Scrapes a job posting URL, evaluates all 5 CV tracks, selects the highest ATS match, compiles the PDF, and logs everything to Excel with clickable links.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "The job posting URL"},
+                    "company": {"type": "string", "description": "Company name (optional)"},
+                    "role": {"type": "string", "description": "Job title (optional)"},
+                    "expected_salary": {"type": "string", "description": "Target salary range e.g. '$45,000 - $65,000 USD/yr'"},
+                    "status": {"type": "string", "description": "Status e.g. 'Por Aplicar' or 'Aplicado'"},
+                    "language": {"type": "string", "enum": ["en", "es"], "description": "CV language: 'en' or 'es'"}
+                },
+                "required": ["url"]
             }
         },
         {
@@ -533,14 +656,24 @@ def run_mcp_server():
                 result_content = log_application(
                     company=args.get("company", ""),
                     role=args.get("role", ""),
-                    expected_salary=args.get("expected_salary", "$45,000 - $65,000 USD/yr"),
-                    modality=args.get("modality", "Remote (LATAM)"),
+                    expected_salary=args.get("expected_salary", "$45,000 - $65,000 USD/año"),
+                    modality=args.get("modality", "Remoto (LATAM)"),
                     url=args.get("url", ""),
                     track=args.get("track", "04_ai_software_engineer (EN)"),
                     ats_match=args.get("ats_match", "N/A"),
                     status=args.get("status", "Por Aplicar"),
                     description=args.get("description", ""),
                     notes=args.get("notes", "")
+                )
+            elif name == "auto_match_and_log":
+                result_content = auto_match_and_log(
+                    url=args.get("url", ""),
+                    company=args.get("company", ""),
+                    role=args.get("role", ""),
+                    expected_salary=args.get("expected_salary", "$45,000 - $65,000 USD/año"),
+                    status=args.get("status", "Por Aplicar"),
+                    notes=args.get("notes", ""),
+                    language=args.get("language", "en")
                 )
             elif name == "list_applications":
                 result_content = list_applications()
@@ -595,14 +728,23 @@ def main():
     p_log = subparsers.add_parser("log", help="Log a job application into tracker spreadsheet")
     p_log.add_argument("--company", required=True, help="Company name")
     p_log.add_argument("--role", required=True, help="Job title")
-    p_log.add_argument("--salary", default="$45,000 - $65,000 USD/yr", help="Expected salary")
-    p_log.add_argument("--modality", default="Remote (LATAM)", help="Modality")
+    p_log.add_argument("--salary", default="$45,000 - $65,000 USD/año", help="Expected salary")
+    p_log.add_argument("--modality", default="Remoto (LATAM)", help="Modality")
     p_log.add_argument("--url", default="", help="Job posting URL")
     p_log.add_argument("--track", default="04_ai_software_engineer (EN)", help="CV Track used")
     p_log.add_argument("--match", default="N/A", help="ATS match score")
     p_log.add_argument("--status", default="Por Aplicar", help="Status")
     p_log.add_argument("--desc", default="", help="Description")
     p_log.add_argument("--notes", default="", help="Next steps or notes")
+
+    p_automatch = subparsers.add_parser("match-and-log", help="Auto match optimal CV track, compile PDF, and log to Excel")
+    p_automatch.add_argument("url", help="Job posting URL")
+    p_automatch.add_argument("--company", default="", help="Company name")
+    p_automatch.add_argument("--role", default="", help="Job title")
+    p_automatch.add_argument("--salary", default="$45,000 - $65,000 USD/año", help="Expected salary")
+    p_automatch.add_argument("--status", default="Por Aplicar", help="Status")
+    p_automatch.add_argument("--notes", default="", help="Notes")
+    p_automatch.add_argument("--lang", default="en", help="Language: en or es")
 
     p_list = subparsers.add_parser("list-apps", help="List all logged applications from tracker")
 
@@ -627,6 +769,12 @@ def main():
             company=args.company, role=args.role, expected_salary=args.salary,
             modality=args.modality, url=args.url, track=args.track,
             ats_match=args.match, status=args.status, description=args.desc, notes=args.notes
+        )
+        print(json.dumps(res, indent=2))
+    elif args.command == "match-and-log":
+        res = auto_match_and_log(
+            url=args.url, company=args.company, role=args.role,
+            expected_salary=args.salary, status=args.status, notes=args.notes, language=args.lang
         )
         print(json.dumps(res, indent=2))
     elif args.command == "list-apps":
