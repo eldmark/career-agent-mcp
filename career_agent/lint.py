@@ -155,8 +155,8 @@ def check_parity(track_dir: Path, report: Report) -> None:
         report.add(rel, "warning", "parity", f"numbers differ between languages: only en {only_en}, only es {only_es}")
 
 
-def run(path: str = None) -> dict:
-    profile = load_profile()
+def run(path: str = None, profile_path: Path = None) -> dict:
+    profile = load_profile(profile_path) if profile_path else load_profile()
     report = Report()
     if path:
         target = Path(path) if Path(path).is_absolute() else BASE_DIR / path

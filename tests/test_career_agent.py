@@ -156,7 +156,8 @@ class PromptInjectionTests(unittest.TestCase):
 
 class RepoLintTests(unittest.TestCase):
     def test_cvs_have_no_lint_errors(self):
-        res = lint.run()
+        example_yaml = Path(__file__).resolve().parent.parent / "profile.example.yaml"
+        res = lint.run(profile_path=example_yaml) if example_yaml.exists() else lint.run()
         self.assertEqual(res["errors"], 0, lint.format_report(res))
 
 
