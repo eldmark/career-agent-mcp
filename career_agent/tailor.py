@@ -53,6 +53,7 @@ def _load_job(url, text, text_file, ca):
 def run(url="", text="", text_file="", company="", role="", language="en", track="auto", log=False) -> dict:
     import career_agent as ca
     import lint
+    import prompt_injection as pi
 
     job_text, meta, error = _load_job(url, text, text_file, ca)
     if error:
@@ -61,6 +62,10 @@ def run(url="", text="", text_file="", company="", role="", language="en", track
         return {"status": "error",
                 "message": "Job text is too short to tailor against (JS-rendered page?). Save the description to a file and use --text-file.",
                 "warning": meta["warning"]}
+
+    injection_audit = pi.scan_text(job_text)
+    if not injection_audit["is_safe"]:
+        job_text = injection_audit["sanitized_text"]
 
     company = company or meta["company"] or "company"
     role = role or meta["title"] or "role"
@@ -119,7 +124,16 @@ def run(url="", text="", text_file="", company="", role="", language="en", track
         report += ["", "## Track scores", *[f"- {t}: {s}%" for t, s in sorted(all_scores.items(), key=lambda x: -x[1])]]
     report += ["", "## Gaps (asked by the job, NOT in profile.yaml - do not claim)",
                *([f"- {g}" for g in after["gap_keywords"]] or ["- none"]),
-               "", "## Lint", *([f"- [{i['level']}] {i['code']}: {i['message']}" for i in lint_res["issues"]] or ["- clean"])]
+               "", "## Security: Prompt Injection Audit",
+               f"- Risk level: `{injection_audit['risk_level']}`",
+               f"- Safe for LLM processing: `{'YES' if injection_audit['is_safe'] else 'NO (SANITIZED)'}`",
+               f"- Threats identified: `{injection_audit['threat_count']}`"]
+    if injection_audit["threats"]:
+        for t in injection_audit["threats"]:
+            report.append(f"  - `[{t['severity']}]` {t['category']}: {t['explanation']} (*\"{t['matched_text']}\"*)")
+    else:
+        report.append("- Result: Clean, no prompt injection patterns detected.")
+    report += ["", "## Lint", *([f"- [{i['level']}] {i['code']}: {i['message']}" for i in lint_res["issues"]] or ["- clean"])]
     (APPLICATIONS_DIR / slug / "report.md").write_text("\n".join(report) + "\n", encoding="utf-8")
 
     result = {
@@ -133,6 +147,11 @@ def run(url="", text="", text_file="", company="", role="", language="en", track
         "match_after": after["match_percentage"],
         "added_keywords": added,
         "gap_keywords": after["gap_keywords"],
+        "prompt_injection": {
+            "risk_level": injection_audit["risk_level"],
+            "is_safe": injection_audit["is_safe"],
+            "threat_count": injection_audit["threat_count"],
+        },
         "lint_errors": lint_res["errors"],
         "lint_warnings": lint_res["warnings"],
         "note": note,

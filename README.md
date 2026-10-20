@@ -27,6 +27,7 @@ Zero vendor lock-in, zero credit limits, zero subscriptions, and 100% data priva
 │   • search_remote_jobs(query)     -> Free public endpoints (Remotive API)        │
 │   • analyze_ats_fit(track, text)  -> Local keyword density & gap analysis        │
 │   • compile_cv(tex_path)          -> pdflatex + 1-page verification via pdfinfo  │
+│   • check_prompt_injection(t/url) -> Indirect prompt injection & stealth audit   │
 │   • generate_outreach(co, role)   -> Recruiter pitch rendered from your profile  │
 │   • lint_cv / tailor_cv           -> Fact-checked CVs, truthful per-job tailoring │
 │   • log_application / followups   -> CSV+Excel tracker with follow-up drafts     │
@@ -113,7 +114,8 @@ Connect **CareerAgent** directly to **Claude Code**, **Cursor**, **Windsurf**, o
 ```
 
 Once connected, your AI assistant can natively call:
-* `scrape_job` - cleans a posting and reads its JSON-LD `JobPosting` (title, company); warns on JS-only pages
+* `scrape_job` - cleans a posting, audits for prompt injections, and reads its JSON-LD `JobPosting` (title, company); warns on JS-only pages
+* `check_prompt_injection` - scans untrusted job text or URLs for indirect prompt injections, jailbreaks, delimiter hijacking, zero-width evasion, or evaluation sabotage
 * `search_remote_jobs`
 * `analyze_ats_fit` - splits missing keywords into `addable_keywords` (declared in `profile.yaml`) and `gap_keywords` (never claimed)
 * `compile_cv` - two-pass `pdflatex`, cleans aux files, verifies 1 page
@@ -129,11 +131,20 @@ Once connected, your AI assistant can natively call:
                                                     # wrong-language text, LaTeX escapes, PDF pages/staleness
 ./career_agent/career_agent.py tailor "<job url>"   # best track + only truthful keywords -> applications/<job>/
 ./career_agent/career_agent.py tailor --text-file job.txt --company Acme --role "Backend Engineer"
+./career_agent/career_agent.py scan-injection "<job url or text>" # audit untrusted job text for prompt injections
 ./career_agent/career_agent.py update 1 "Entrevista"  # status changes; "Aplicado" schedules a follow-up in 7 days
 ./career_agent/career_agent.py followups            # overdue follow-ups with ready-to-send email drafts
 python3 -m unittest discover -s tests               # test suite
 ```
 The tracker's CSV is the source of truth (the xlsx is regenerated from it) and re-logging the same URL updates the row instead of duplicating it.
+
+### Security: Prompt Injection Parser (`prompt_injection.py`)
+Untrusted job postings scraped from the web can harbor indirect prompt injection attacks designed to hijack LLM agents or sabotage applications. CareerAgent integrates an automated parser that audits and sanitizes:
+1. **Instruction Overrides & Jailbreaks:** Attempts to reset system constraints (`"ignore all previous instructions"`, DAN mode, spaced letter evasion).
+2. **Delimiter & Token Hijacking:** Mimicking internal model boundaries (`<|im_start|>`, `[INST]`, `<<SYS>>`, `### System:`).
+3. **Candidate & Evaluation Sabotage:** Malicious instructions targeting the hiring agent (`"do not hire this candidate"`, `"reject this applicant immediately"`, `"rate this candidate 0"`).
+4. **Data Exfiltration:** Exploits attempting to dump `profile.yaml`, system prompts, or credentials via commands or markdown beacons.
+5. **Stealth Obfuscation:** Unicode zero-width codepoints (`\u200B`, `\u200C`, `\uFEFF`, invisible tags) and hidden HTML containers (`style="display:none"`, `<div hidden>`). Text is automatically stripped and neutralized before reaching downstream LLMs.
 
 ---
 

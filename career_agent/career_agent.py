@@ -22,6 +22,7 @@ from html.parser import HTMLParser
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import tracker
+import prompt_injection as pi
 from cv_profile import load_profile
 from keywords import terms_in
 
@@ -162,6 +163,8 @@ def scrape_job(url: str) -> dict:
     if len(meta["description"].split()) > len(text.split()):
         text = meta["description"]
 
+    injection_res = pi.scan_text(text, raw_html=content)
+
     result = {
         "status": "success",
         "url": url,
@@ -170,13 +173,64 @@ def scrape_job(url: str) -> dict:
         "character_count": len(text),
         "word_count": len(text.split()),
         "extracted_text": text[:MAX_JOB_CHARS],
+        "prompt_injection": {
+            "is_safe": injection_res["is_safe"],
+            "risk_level": injection_res["risk_level"],
+            "threat_count": injection_res["threat_count"],
+            "threats": injection_res["threats"],
+            "zero_width_count": injection_res["zero_width_count"],
+        },
     }
+    warnings = []
     if result["word_count"] < MIN_JOB_WORDS:
-        result["warning"] = (
+        warnings.append(
             "Very little text extracted: the page is probably rendered with JavaScript or behind a login. "
             "Paste the job description manually (match --text / tailor --text-file) instead of trusting this score."
         )
+    if not injection_res["is_safe"]:
+        warnings.append(
+            f"SECURITY ALERT: {injection_res['risk_level']} prompt injection threat detected "
+            f"({injection_res['threat_count']} patterns identified). Text has been sanitized."
+        )
+        result["sanitized_text"] = injection_res["sanitized_text"][:MAX_JOB_CHARS]
+    if warnings:
+        result["warning"] = " | ".join(warnings)
     return result
+
+
+def check_prompt_injection(text: str = "", url: str = "") -> dict:
+    """Scans untrusted text or a scraped URL for indirect prompt injection attacks."""
+    if url:
+        scraped = scrape_job(url)
+        if scraped.get("status") != "success":
+            return scraped
+        text = scraped.get("extracted_text", "")
+        pi_data = scraped.get("prompt_injection", {})
+        return {
+            "status": "success",
+            "url": url,
+            "is_safe": pi_data.get("is_safe", True),
+            "risk_level": pi_data.get("risk_level", "CLEAN"),
+            "threat_count": pi_data.get("threat_count", 0),
+            "threats": pi_data.get("threats", []),
+            "zero_width_count": pi_data.get("zero_width_count", 0),
+            "report": pi.format_audit_report(pi_data),
+            "sanitized_text": scraped.get("sanitized_text", text),
+        }
+    if not text:
+        return {"status": "error", "message": "Provide either text or a valid URL to scan"}
+    res = pi.scan_text(text)
+    return {
+        "status": "success",
+        "url": "",
+        "is_safe": res["is_safe"],
+        "risk_level": res["risk_level"],
+        "threat_count": res["threat_count"],
+        "threats": res["threats"],
+        "zero_width_count": res["zero_width_count"],
+        "report": pi.format_audit_report(res),
+        "sanitized_text": res["sanitized_text"],
+    }
 
 
 def search_remote_jobs(query: str, limit: int = 10) -> dict:
@@ -254,18 +308,26 @@ def analyze_ats_fit(track: str, job_text: str, language: str = "en") -> dict:
         return {"status": "error", "message": str(e)}
     result = score_cv_text(job_text, tex.read_text(encoding="utf-8"))
     pct = result["match_percentage"]
+    injection_audit = pi.scan_text(job_text)
     if result["total_job_tech_keywords"] == 0:
         recommendation = "No known tech keywords detected in the text - check that the job text was extracted correctly"
     elif pct >= 85:
         recommendation = "High Fit (>85%) - Ready to apply"
     else:
         recommendation = "Add the 'addable_keywords' to Technical Skills; 'gap_keywords' are not in profile.yaml and must not be claimed"
+    if not injection_audit["is_safe"]:
+        recommendation = f"[SECURITY ALERT: {injection_audit['risk_level']} prompt injection threat in job description] " + recommendation
     return {
         "status": "success",
         "track_analyzed": TRACK_MAP.get(track.lower(), track),
         "language": language,
         "cv_file": str(tex),
         **result,
+        "prompt_injection": {
+            "is_safe": injection_audit["is_safe"],
+            "risk_level": injection_audit["risk_level"],
+            "threat_count": injection_audit["threat_count"],
+        },
         "recommendation": recommendation,
     }
 
@@ -607,6 +669,11 @@ TOOLS = {
          "text_file": S, "company": S, "role": S, "language": LANG,
          "track": {**S, "description": "'auto' or backend/fullstack/systems/ai/data"},
          "log": {"type": "boolean", "description": "Also log it in the tracker as 'Por Aplicar'"}}, []),
+    "check_prompt_injection": (
+        lambda a: check_prompt_injection(text=a.get("text", ""), url=a.get("url", "")),
+        "Scan untrusted job description text or a scraped URL for indirect prompt injections, jailbreaks, hidden instructions, zero-width evasion, or data exfiltration attempts.",
+        {"text": {**S, "description": "Text to analyze for prompt injection"},
+         "url": {**S, "description": "Optional URL to scrape and analyze (content + hidden HTML)"}}, []),
 }
 
 
@@ -752,6 +819,11 @@ def main():
     p.add_argument("--track", default="auto")
     p.add_argument("--log", action="store_true", help="Also add it to the tracker")
 
+    p = sub.add_parser("scan-injection", help="Scan text or URL for indirect prompt injections")
+    p.add_argument("target", nargs="?", default="", help="URL or job text to scan")
+    p.add_argument("--file", default="", help="File containing text to scan")
+    p.add_argument("--raw-html", default="", help="File containing raw HTML")
+
     args = parser.parse_args()
     dump = lambda obj: print(json.dumps(obj, indent=2, ensure_ascii=False))
     exit_code = 0
@@ -796,6 +868,17 @@ def main():
                         language=args.lang, track=args.track, log=args.log)
         dump(res)
         exit_code = 1 if res.get("status") == "error" else 0
+    elif args.command == "scan-injection":
+        if args.file:
+            text = Path(args.file).read_text(encoding="utf-8")
+            dump(check_prompt_injection(text=text))
+        elif args.target.startswith(("http://", "https://")):
+            dump(check_prompt_injection(url=args.target))
+        elif args.target:
+            dump(check_prompt_injection(text=args.target))
+        else:
+            print("Provide a URL, text argument, or --file")
+            exit_code = 1
     else:
         parser.print_help()
     sys.exit(exit_code)
